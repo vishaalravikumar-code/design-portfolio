@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Background</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #0b0a0e;
+  }
+
+  /* ShaderGradient mounts here, full-bleed behind everything */
+  #root {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+
+  /* ---------- Tarot card ---------- */
+
+  .card-float {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 12;   /* above dither (9), grain (10), vignette (11) */
+    /* card keeps the source image's portrait ratio */
+    height: min(64vh, 150vw);
+    aspect-ratio: 988 / 1568;
+    transform: translate(-50%, -50%);
+    animation: card-hover 9s ease-in-out infinite;
+    filter: drop-shadow(0 35px 45px rgba(0, 0, 0, 0.55));
+  }
+
+  @keyframes card-hover {
+    0%   { transform: translate(-50%, -50%) rotate(-1.2deg) translateY(0); }
+    50%  { transform: translate(-50%, -50%) rotate(1.2deg) translateY(-14px); }
+    100% { transform: translate(-50%, -50%) rotate(-1.2deg) translateY(0); }
+  }
+
+  .card-rim {
+    position: absolute;
+    inset: 0;
+    border-radius: 22px;
+    overflow: hidden;
+  }
+
+  .card-rim img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(1.05) contrast(1.03);
+  }
+
+  /* name lockup in the red field at the top of the card */
+  .card-title {
+    position: absolute;
+    top: 6.5%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: #f3e9db;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    text-transform: uppercase;
+    pointer-events: none;
+    text-shadow: 0 1px 12px rgba(60, 0, 0, 0.35);
+  }
+
+  .card-title h1 {
+    font-size: clamp(0.9rem, 2.6vh, 1.5rem);
+    font-weight: 700;
+    letter-spacing: 0.26em;
+    /* nudge right by the trailing tracking so it optically centers */
+    margin-right: -0.26em;
+  }
+
+  .card-title h2 {
+    margin-top: 0.7em;
+    font-size: clamp(0.5rem, 1.3vh, 0.75rem);
+    font-weight: 500;
+    letter-spacing: 0.42em;
+    margin-right: -0.42em;
+    opacity: 0.82;
+  }
+
+  /* ---------- Dither screens ---------- */
+
+  .dither {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9;
+  }
+
+  /* fine dot screen — screen-door over everything */
+  .dither::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(0,0,0,0.85) 1px, transparent 1px);
+    background-size: 3px 3px;
+    opacity: 0.28;
+    mix-blend-mode: multiply;
+  }
+
+  /* coarser offset light screen — gives the woven halftone shimmer */
+  .dither::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1.2px);
+    background-size: 4px 4px;
+    background-position: 2px 2px;
+    opacity: 0.14;
+    mix-blend-mode: overlay;
+  }
+
+  /* ---------- Grain ---------- */
+
+  .grain {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: -100px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.5;
+    mix-blend-mode: overlay;
+    animation: grain-shift 0.9s steps(4) infinite;
+  }
+
+  /* second, coarser pass — adds the photographic chunkiness */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: -100px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' stitchTiles='stitch' seed='7'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n2)'/%3E%3C/svg%3E");
+    opacity: 0.22;
+    mix-blend-mode: soft-light;
+    animation: grain-shift 1.3s steps(3) infinite reverse;
+  }
+
+  @keyframes grain-shift {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(-40px, 25px); }
+    50%  { transform: translate(30px, -35px); }
+    75%  { transform: translate(-25px, -20px); }
+    100% { transform: translate(35px, 30px); }
+  }
+
+  /* ---------- Vignette / tonal finish ---------- */
+
+  .vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 11;
+    background:
+      radial-gradient(ellipse at 50% 50%,
+        transparent 55%, rgba(5, 4, 8, 0.45) 100%);
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.1.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.1.0/client",
+    "@shadergradient/react": "https://esm.sh/@shadergradient/react@2.0.24?deps=react@19.1.0,react-dom@19.1.0"
+  }
+}
+</script>
+</head>
+<body>
+
+  <div id="root" aria-hidden="true"></div>
+
+  <div class="card-float">
+    <div class="card-rim">
+      <img src="card.png" alt="Tarot card">
+      <div class="card-title">
+        <h1>Vishaal Ravikumar</h1>
+        <h2>Sr. Product Designs</h2>
+      </div>
+    </div>
+  </div>
+
+  <div class="dither" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+<script type="module">
+  import React from "react";
+  import { createRoot } from "react-dom/client";
+  import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
+
+  const e = React.createElement;
+
+  // FRS-style palette: vermilion / cobalt / magenta on a waterPlane,
+  // slow speed so it morphs like drifting ink rather than waves
+  const URL_CONFIG =
+    "https://www.shadergradient.co/customize" +
+    "?animate=on" +
+    "&axesHelper=off" +
+    "&brightness=1.1" +
+    "&cAzimuthAngle=180" +
+    "&cDistance=3.9" +
+    "&cPolarAngle=115" +
+    "&cameraZoom=1" +
+    "&color1=%23ff4a1c" +      // vermilion
+    "&color2=%232b3bff" +      // cobalt
+    "&color3=%23d43fa8" +      // magenta
+    "&embedMode=off" +
+    "&envPreset=city" +
+    "&grain=on" +
+    "&lightType=3d" +
+    "&pixelDensity=1" +
+    "&positionX=-0.5" +
+    "&positionY=0.1" +
+    "&positionZ=0" +
+    "&reflection=0.1" +
+    "&rotationX=0" +
+    "&rotationY=0" +
+    "&rotationZ=235" +
+    "&shader=defaults" +
+    "&type=waterPlane" +
+    "&uDensity=1.8" +
+    "&uFrequency=5.5" +
+    "&uSpeed=0.25" +
+    "&uStrength=3" +
+    "&uTime=0.2" +
+    "&wireframe=false";
+
+  createRoot(document.getElementById("root")).render(
+    e(
+      ShaderGradientCanvas,
+      {
+        style: { position: "absolute", inset: 0 },
+        pixelDensity: 1,
+        fov: 45
+      },
+      e(ShaderGradient, { control: "query", urlString: URL_CONFIG })
+    )
+  );
+</script>
+
+</body>
+</html>
