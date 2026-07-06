@@ -138,6 +138,43 @@
     pointer-events: none;
     text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
   }
+
+  /* sound toggle */
+  #sound-toggle {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 20;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid rgba(243, 233, 219, 0.25);
+    background: rgba(20, 6, 6, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #f3e9db;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+    opacity: 0.7;
+  }
+  #sound-toggle:hover { opacity: 1; transform: scale(1.06); }
+  #sound-toggle svg { width: 20px; height: 20px; display: block; }
+  #sound-toggle .icon-on { display: none; }
+  #sound-toggle.playing .icon-on { display: block; }
+  #sound-toggle.playing .icon-off { display: none; }
+  /* soft pulse ring while playing */
+  #sound-toggle.playing {
+    background: rgba(60, 10, 10, 0.6);
+    box-shadow: 0 0 0 0 rgba(243, 233, 219, 0.35);
+    animation: sound-pulse 2.4s ease-out infinite;
+  }
+  @keyframes sound-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(243, 233, 219, 0.30); }
+    70%  { box-shadow: 0 0 0 14px rgba(243, 233, 219, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(243, 233, 219, 0); }
+  }
 </style>
 </head>
 <body>
@@ -157,6 +194,19 @@
       </div>
     </div>
   </div>
+
+  <button id="sound-toggle" aria-label="Toggle ambient sound" title="Ambient sound">
+    <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4V5Z"/><line x1="22" y1="9" x2="16" y2="15"/>
+      <line x1="16" y1="9" x2="22" y2="15"/>
+    </svg>
+    <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+      <path d="M18.5 6a8 8 0 0 1 0 12"/>
+    </svg>
+  </button>
 
   <script>
   /* Dithered wave background — ported from the React Bits "Dither"
@@ -412,6 +462,164 @@
   })();
   </script>
 
+  <script>
+  /* Dark-fantasy analog synth — arpeggiated suspended chords, 1970s
+     progressive feel. Pure Web Audio, no dependencies. Detuned-saw voices
+     through a resonant low-pass with per-note pluck envelopes; an 8th-note
+     arpeggiator cycles suspended voicings over an 8-bar Aeolian/harmonic-
+     minor progression, under a low drone, slow filter breathing, tape
+     delay and a generated convolution reverb. Starts on user gesture. */
+  (function () {
+    var btn = document.getElementById('sound-toggle');
+    var ctx = null, master = null, tone = null, lfoDepth = null,
+        delaySend = null, revSend = null;
+    var started = false, playing = false, timer = null;
+    var BPM = 90, stepDur = 60 / BPM / 2;   // eighth notes
+    var step = 0, nextTime = 0;
+
+    function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+    // suspended voicings (no thirds) — 6-note ascending arps, ~2 octaves.
+    // roots walk a dark A-minor path with a harmonic-minor (E major) cadence.
+    var chords = [
+      { arp: [57, 62, 64, 69, 74, 76], bass: 45 }, // Asus4  A D E
+      { arp: [53, 55, 60, 65, 67, 72], bass: 41 }, // Fsus2  F G C
+      { arp: [55, 60, 62, 67, 72, 74], bass: 43 }, // Gsus4  G C D
+      { arp: [57, 59, 64, 69, 71, 76], bass: 45 }, // Asus2  A B E
+      { arp: [50, 55, 57, 62, 67, 69], bass: 38 }, // Dsus4  D G A
+      { arp: [58, 60, 65, 70, 72, 77], bass: 46 }, // Bbsus2 Bb C F
+      { arp: [52, 57, 59, 64, 69, 71], bass: 40 }, // Esus4  E A B
+      { arp: [52, 59, 64, 68, 71, 76], bass: 40 }  // E(maj) E B E G# B  → cadence
+    ];
+    var STEPS_PER_CHORD = 8; // one bar
+
+    function makeReverbIR(seconds, decay) {
+      var rate = ctx.sampleRate, len = Math.floor(rate * seconds);
+      var buf = ctx.createBuffer(2, len, rate);
+      for (var ch = 0; ch < 2; ch++) {
+        var d = buf.getChannelData(ch);
+        for (var i = 0; i < len; i++)
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+      }
+      return buf;
+    }
+
+    function initAudio() {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+      master = ctx.createGain(); master.gain.value = 0.0001;
+      tone = ctx.createBiquadFilter(); tone.type = 'lowpass';
+      tone.frequency.value = 4800; tone.Q.value = 0.6;
+      tone.connect(master); master.connect(ctx.destination);
+
+      // tape-style feedback delay (dotted-eighth-ish)
+      var delay = ctx.createDelay(1.0);
+      delay.delayTime.value = stepDur * 1.5;
+      var fb = ctx.createGain(); fb.gain.value = 0.36;
+      var dTone = ctx.createBiquadFilter(); dTone.type = 'lowpass'; dTone.frequency.value = 2600;
+      delay.connect(dTone); dTone.connect(fb); fb.connect(delay); delay.connect(tone);
+      delaySend = ctx.createGain(); delaySend.gain.value = 0.28; delaySend.connect(delay);
+
+      // convolution reverb
+      var conv = ctx.createConvolver(); conv.buffer = makeReverbIR(2.8, 2.4);
+      var revReturn = ctx.createGain(); revReturn.gain.value = 0.5;
+      conv.connect(revReturn); revReturn.connect(tone);
+      revSend = ctx.createGain(); revSend.gain.value = 0.30; revSend.connect(conv);
+
+      // slow filter "breathing" LFO shared by all voices
+      var lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.05;
+      lfoDepth = ctx.createGain(); lfoDepth.gain.value = 260;
+      lfo.connect(lfoDepth); lfo.start();
+    }
+
+    function voice(midi, time, dur, vel, opts) {
+      opts = opts || {};
+      var f = mtof(midi);
+      var o1 = ctx.createOscillator(), o2 = ctx.createOscillator(),
+          sub = ctx.createOscillator();
+      o1.type = 'sawtooth'; o2.type = 'sawtooth'; sub.type = 'triangle';
+      o1.frequency.value = f; o2.frequency.value = f; sub.frequency.value = f / 2;
+      o1.detune.value = -7; o2.detune.value = 7;   // analog width
+
+      var filt = ctx.createBiquadFilter(); filt.type = 'lowpass';
+      filt.Q.value = opts.q != null ? opts.q : 7;
+      lfoDepth.connect(filt.frequency);            // shared breathing
+
+      var amp = ctx.createGain(); amp.gain.value = 0;
+      o1.connect(filt); o2.connect(filt); sub.connect(filt);
+      filt.connect(amp);
+      amp.connect(tone);
+      if (opts.send !== false) { amp.connect(delaySend); amp.connect(revSend); }
+
+      var base = opts.base != null ? opts.base : 300;
+      var peak = base + (opts.peak != null ? opts.peak : 2600) * vel;
+      filt.frequency.setValueAtTime(base, time);
+      filt.frequency.linearRampToValueAtTime(peak, time + 0.02);
+      filt.frequency.exponentialRampToValueAtTime(base + 120, time + dur * 0.9);
+
+      var atk = opts.atk != null ? opts.atk : 0.008;
+      amp.gain.setValueAtTime(0, time);
+      amp.gain.linearRampToValueAtTime(vel, time + atk);
+      amp.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+
+      [o1, o2, sub].forEach(function (o) { o.start(time); o.stop(time + dur + 0.05); });
+    }
+
+    function scheduleStep(s, time) {
+      var ci = Math.floor(s / STEPS_PER_CHORD) % chords.length;
+      var local = s % STEPS_PER_CHORD;
+      var chord = chords[ci];
+
+      // arpeggio note (pattern length 6 vs 8-step bar → gentle phasing)
+      var note = chord.arp[s % chord.arp.length];
+      var accent = (local % 2 === 0);
+      voice(note, time, stepDur * 1.9, accent ? 0.34 : 0.22,
+            { base: 300, peak: 2700, q: 8 });
+
+      // low drone + pad at each bar change
+      if (local === 0) {
+        voice(chord.bass, time, stepDur * 8 * 1.02, 0.5,
+              { base: 160, peak: 500, q: 3, atk: 0.05, send: false });
+        // soft sustained fifth pad, heavy in the reverb
+        voice(chord.bass + 19, time, stepDur * 8 * 1.02, 0.10,
+              { base: 400, peak: 700, q: 2, atk: 0.6 });
+      }
+    }
+
+    function scheduler() {
+      while (nextTime < ctx.currentTime + 0.12) {
+        scheduleStep(step, nextTime);
+        step++; nextTime += stepDur;
+      }
+    }
+
+    function start() {
+      if (!started) { initAudio(); started = true; }
+      if (ctx.state === 'suspended') ctx.resume();
+      step = 0; nextTime = ctx.currentTime + 0.08;
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), ctx.currentTime);
+      master.gain.exponentialRampToValueAtTime(0.9, ctx.currentTime + 1.5);
+      timer = setInterval(scheduler, 25);
+      playing = true; btn.classList.add('playing');
+    }
+
+    function stop() {
+      if (!ctx) return;
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+      master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+      clearInterval(timer); timer = null;
+      playing = false; btn.classList.remove('playing');
+    }
+
+    btn.addEventListener('click', function () {
+      if (playing) stop(); else start();
+    });
+    // expose for quick diagnostics
+    window.__synth = { start: start, stop: stop, get state(){ return ctx && ctx.state; } };
+  })();
+  </script>
 
 </body>
 </html>
