@@ -493,6 +493,16 @@
     ];
     var STEPS_PER_CHORD = 8; // one bar
 
+    // soft-clip curve for mild analog saturation (tanh, normalised)
+    function makeDriveCurve(k) {
+      var n = 1024, curve = new Float32Array(n), t = Math.tanh(k);
+      for (var i = 0; i < n; i++) {
+        var x = (i / (n - 1)) * 2 - 1;
+        curve[i] = Math.tanh(k * x) / t;
+      }
+      return curve;
+    }
+
     function makeReverbIR(seconds, decay) {
       var rate = ctx.sampleRate, len = Math.floor(rate * seconds);
       var buf = ctx.createBuffer(2, len, rate);
@@ -508,23 +518,39 @@
       ctx = new (window.AudioContext || window.webkitAudioContext)();
 
       master = ctx.createGain(); master.gain.value = 0.0001;
-      tone = ctx.createBiquadFilter(); tone.type = 'lowpass';
-      tone.frequency.value = 4800; tone.Q.value = 0.6;
-      tone.connect(master); master.connect(ctx.destination);
+      master.connect(ctx.destination);
 
-      // tape-style feedback delay (dotted-eighth-ish)
+      // mild analog saturation, then a gentle tone-shaping low-pass
+      var drive = ctx.createWaveShaper();
+      drive.curve = makeDriveCurve(2.4); drive.oversample = '2x';
+      drive.connect(master);
+      tone = ctx.createBiquadFilter(); tone.type = 'lowpass';
+      tone.frequency.value = 4600; tone.Q.value = 0.6;
+      tone.connect(drive);
+
+      // tape-style feedback delay (dotted-eighth-ish), now warmer & deeper
       var delay = ctx.createDelay(1.0);
       delay.delayTime.value = stepDur * 1.5;
-      var fb = ctx.createGain(); fb.gain.value = 0.36;
-      var dTone = ctx.createBiquadFilter(); dTone.type = 'lowpass'; dTone.frequency.value = 2600;
-      delay.connect(dTone); dTone.connect(fb); fb.connect(delay); delay.connect(tone);
-      delaySend = ctx.createGain(); delaySend.gain.value = 0.28; delaySend.connect(delay);
+      var fb = ctx.createGain(); fb.gain.value = 0.46;
+      var dTone = ctx.createBiquadFilter(); dTone.type = 'lowpass'; dTone.frequency.value = 2400;
+      var dSat = ctx.createWaveShaper(); dSat.curve = makeDriveCurve(1.6);  // tape grit in the repeats
+      delay.connect(dSat); dSat.connect(dTone); dTone.connect(fb); fb.connect(delay);
+      delay.connect(tone);
+      delaySend = ctx.createGain(); delaySend.gain.value = 0.34; delaySend.connect(delay);
 
-      // convolution reverb
-      var conv = ctx.createConvolver(); conv.buffer = makeReverbIR(2.8, 2.4);
-      var revReturn = ctx.createGain(); revReturn.gain.value = 0.5;
+      // tape wow & flutter — slowly modulate the delay time
+      var flutter = ctx.createOscillator(); flutter.type = 'sine'; flutter.frequency.value = 0.9;
+      var flutterAmt = ctx.createGain(); flutterAmt.gain.value = 0.0016;
+      flutter.connect(flutterAmt); flutterAmt.connect(delay.delayTime); flutter.start();
+      var wow = ctx.createOscillator(); wow.type = 'sine'; wow.frequency.value = 0.13;
+      var wowAmt = ctx.createGain(); wowAmt.gain.value = 0.0032;
+      wow.connect(wowAmt); wowAmt.connect(delay.delayTime); wow.start();
+
+      // convolution reverb — longer tail, more of it in the mix
+      var conv = ctx.createConvolver(); conv.buffer = makeReverbIR(3.6, 2.3);
+      var revReturn = ctx.createGain(); revReturn.gain.value = 0.62;
       conv.connect(revReturn); revReturn.connect(tone);
-      revSend = ctx.createGain(); revSend.gain.value = 0.30; revSend.connect(conv);
+      revSend = ctx.createGain(); revSend.gain.value = 0.42; revSend.connect(conv);
 
       // slow filter "breathing" LFO shared by all voices
       var lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.05;
@@ -599,7 +625,7 @@
       step = 0; nextTime = ctx.currentTime + 0.08;
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), ctx.currentTime);
-      master.gain.exponentialRampToValueAtTime(0.9, ctx.currentTime + 1.5);
+      master.gain.exponentialRampToValueAtTime(0.78, ctx.currentTime + 1.5);
       timer = setInterval(scheduler, 25);
       playing = true; btn.classList.add('playing');
     }
