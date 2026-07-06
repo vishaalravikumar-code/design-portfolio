@@ -4,41 +4,82 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portfolio Background</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jacquard+12&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   html, body {
     height: 100%;
     overflow: hidden;
-    background: #0b0a0e;
+    background: #a01e1e;   /* fallback while the image loads */
   }
 
-  /* ShaderGradient mounts here, full-bleed behind everything */
-  #root {
+  /* poppy-field backdrop behind everything */
+  body {
+    background-image: url("poppies.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* ---------- Dithered wave field (over the backdrop) ---------- */
+  /* shader is unchanged; it just blends over the image so the poppy
+     field reads through the dither texture */
+  #dither {
     position: fixed;
     inset: 0;
-    z-index: 0;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    mix-blend-mode: overlay;
+    opacity: 0.6;
   }
 
   /* ---------- Tarot card ---------- */
 
-  .card-float {
+  /* perspective stage: centres the card and gives it 3D depth */
+  .card-stage {
     position: fixed;
     left: 50%;
     top: 50%;
-    z-index: 12;   /* above dither (9), grain (10), vignette (11) */
-    /* card keeps the source image's portrait ratio */
+    z-index: 12;   /* above dither (1), shadow (6) */
     height: min(64vh, 150vw);
     aspect-ratio: 988 / 1568;
     transform: translate(-50%, -50%);
-    animation: card-hover 9s ease-in-out infinite;
-    filter: drop-shadow(0 35px 45px rgba(0, 0, 0, 0.55));
+    perspective: 1000px;
   }
 
-  @keyframes card-hover {
-    0%   { transform: translate(-50%, -50%) rotate(-1.2deg) translateY(0); }
-    50%  { transform: translate(-50%, -50%) rotate(1.2deg) translateY(-14px); }
-    100% { transform: translate(-50%, -50%) rotate(-1.2deg) translateY(0); }
+  /* the card itself — JS tilts it toward the cursor (rotateX/Y + scale) */
+  .card-float {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    will-change: transform;
+    /* tight contact shadow for edge grounding; the big cast shadow
+       is a separate, light-source-projected element */
+    filter: drop-shadow(0 4px 6px rgba(60, 0, 0, 0.35));
+  }
+
+  /* dynamic cast shadow — a card-shaped dark shape projected onto the
+     red wall by a fixed light source. JS positions/scales it each frame;
+     these are just the resting defaults so it looks right before JS runs. */
+  .card-shadow {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 6;                 /* over the kolam wall, under the card */
+    height: min(64vh, 150vw);
+    aspect-ratio: 988 / 1568;
+    border-radius: 26px;
+    background: #360606;        /* dark maroon: red wall in shadow */
+    transform: translate(-50%, -50%) translate(120px, 55px) scale(1.18);
+    filter: blur(40px);
+    opacity: 0.5;
+    will-change: transform, opacity;
+    pointer-events: none;
   }
 
   .card-rim {
@@ -47,6 +88,7 @@
     border-radius: 22px;
     overflow: hidden;
   }
+
 
   .card-rim img {
     display: block;
@@ -59,199 +101,317 @@
   /* name lockup in the red field at the top of the card */
   .card-title {
     position: absolute;
-    top: 6.5%;
-    left: 0;
-    right: 0;
-    text-align: center;
+    top: 5%;
+    left: 7%;
+    right: 7%;
+    text-align: left;
     color: #f3e9db;
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    text-transform: uppercase;
     pointer-events: none;
     text-shadow: 0 1px 12px rgba(60, 0, 0, 0.35);
   }
 
   .card-title h1 {
-    font-size: clamp(0.9rem, 2.6vh, 1.5rem);
-    font-weight: 700;
-    letter-spacing: 0.26em;
-    /* nudge right by the trailing tracking so it optically centers */
-    margin-right: -0.26em;
+    font-family: "Jacquard 12", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: clamp(1.8rem, 5.2vh, 3rem);
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: 0.02em;
   }
 
-  .card-title h2 {
-    margin-top: 0.7em;
+  /* position line, centered along the bottom edge of the card */
+  .card-role {
+    position: absolute;
+    bottom: 5%;
+    left: 7%;
+    right: 7%;
+    text-align: center;
+    color: #f3e9db;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: clamp(0.5rem, 1.3vh, 0.75rem);
     font-weight: 500;
     letter-spacing: 0.42em;
+    /* offset the trailing tracking so it optically centers */
     margin-right: -0.42em;
-    opacity: 0.82;
-  }
-
-  /* ---------- Dither screens ---------- */
-
-  .dither {
-    position: fixed;
-    inset: 0;
+    text-transform: uppercase;
+    opacity: 0.9;
     pointer-events: none;
-    z-index: 9;
-  }
-
-  /* fine dot screen — screen-door over everything */
-  .dither::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(circle, rgba(0,0,0,0.85) 1px, transparent 1px);
-    background-size: 3px 3px;
-    opacity: 0.28;
-    mix-blend-mode: multiply;
-  }
-
-  /* coarser offset light screen — gives the woven halftone shimmer */
-  .dither::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1.2px);
-    background-size: 4px 4px;
-    background-position: 2px 2px;
-    opacity: 0.14;
-    mix-blend-mode: overlay;
-  }
-
-  /* ---------- Grain ---------- */
-
-  .grain {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  .grain::before {
-    content: "";
-    position: absolute;
-    inset: -100px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    opacity: 0.5;
-    mix-blend-mode: overlay;
-    animation: grain-shift 0.9s steps(4) infinite;
-  }
-
-  /* second, coarser pass — adds the photographic chunkiness */
-  .grain::after {
-    content: "";
-    position: absolute;
-    inset: -100px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' stitchTiles='stitch' seed='7'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n2)'/%3E%3C/svg%3E");
-    opacity: 0.22;
-    mix-blend-mode: soft-light;
-    animation: grain-shift 1.3s steps(3) infinite reverse;
-  }
-
-  @keyframes grain-shift {
-    0%   { transform: translate(0, 0); }
-    25%  { transform: translate(-40px, 25px); }
-    50%  { transform: translate(30px, -35px); }
-    75%  { transform: translate(-25px, -20px); }
-    100% { transform: translate(35px, 30px); }
-  }
-
-  /* ---------- Vignette / tonal finish ---------- */
-
-  .vignette {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 11;
-    background:
-      radial-gradient(ellipse at 50% 50%,
-        transparent 55%, rgba(5, 4, 8, 0.45) 100%);
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
   }
 </style>
-
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@19.1.0",
-    "react-dom/client": "https://esm.sh/react-dom@19.1.0/client",
-    "@shadergradient/react": "https://esm.sh/@shadergradient/react@2.0.24?deps=react@19.1.0,react-dom@19.1.0"
-  }
-}
-</script>
 </head>
 <body>
 
-  <div id="root" aria-hidden="true"></div>
+  <canvas id="dither" aria-hidden="true"></canvas>
 
-  <div class="card-float">
-    <div class="card-rim">
-      <img src="card.png" alt="Tarot card">
-      <div class="card-title">
-        <h1>Vishaal Ravikumar</h1>
-        <h2>Sr. Product Designs</h2>
+  <div class="card-shadow" aria-hidden="true"></div>
+
+  <div class="card-stage">
+    <div class="card-float">
+      <div class="card-rim">
+        <img src="card.png" alt="Tarot card">
+        <div class="card-title">
+          <h1>Vishaal Ravikumar</h1>
+        </div>
+        <div class="card-role">Sr. Product Designer</div>
       </div>
     </div>
   </div>
 
-  <div class="dither" aria-hidden="true"></div>
-  <div class="grain" aria-hidden="true"></div>
-  <div class="vignette" aria-hidden="true"></div>
+  <script>
+  /* Dithered wave background — ported from the React Bits "Dither"
+     component (react-three-fiber + postprocessing) to a single
+     self-contained WebGL2 pass, no dependencies. Same FBM wave field,
+     Bayer 8x8 ordered dither and posterization, tuned to the card red. */
+  (function () {
+    var canvas = document.getElementById('dither');
+    var gl = canvas.getContext('webgl2', { antialias: true });
+    if (!gl) return;   // graceful: red background shows through
 
-<script type="module">
-  import React from "react";
-  import { createRoot } from "react-dom/client";
-  import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
+    var VERT =
+      '#version 300 es\n' +
+      'void main(){\n' +
+      '  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));\n' +
+      '  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);\n' +
+      '}';
 
-  const e = React.createElement;
+    var FRAG =
+      '#version 300 es\n' +
+      'precision highp float;\n' +
+      'out vec4 fragColor;\n' +
+      'uniform vec2 resolution;\n' +
+      'uniform float time;\n' +
+      'uniform float waveSpeed;\n' +
+      'uniform float waveFrequency;\n' +
+      'uniform float waveAmplitude;\n' +
+      'uniform float colorNum;\n' +
+      'uniform float pixelSize;\n' +
+      'uniform vec2 mousePos;\n' +
+      'uniform int enableMouseInteraction;\n' +
+      'uniform float mouseRadius;\n' +
+      'uniform vec3 darkTone;\n' +
+      'uniform vec3 lightTone;\n' +
+      'vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}\n' +
+      'vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}\n' +
+      'vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}\n' +
+      'vec2 fade(vec2 t){return t*t*t*(t*(t*6.0-15.0)+10.0);}\n' +
+      'float cnoise(vec2 P){\n' +
+      '  vec4 Pi=floor(P.xyxy)+vec4(0.0,0.0,1.0,1.0);\n' +
+      '  vec4 Pf=fract(P.xyxy)-vec4(0.0,0.0,1.0,1.0);\n' +
+      '  Pi=mod289(Pi);\n' +
+      '  vec4 ix=Pi.xzxz, iy=Pi.yyww, fx=Pf.xzxz, fy=Pf.yyww;\n' +
+      '  vec4 i=permute(permute(ix)+iy);\n' +
+      '  vec4 gx=fract(i*(1.0/41.0))*2.0-1.0;\n' +
+      '  vec4 gy=abs(gx)-0.5;\n' +
+      '  vec4 tx=floor(gx+0.5);\n' +
+      '  gx=gx-tx;\n' +
+      '  vec2 g00=vec2(gx.x,gy.x), g10=vec2(gx.y,gy.y), g01=vec2(gx.z,gy.z), g11=vec2(gx.w,gy.w);\n' +
+      '  vec4 norm=taylorInvSqrt(vec4(dot(g00,g00),dot(g01,g01),dot(g10,g10),dot(g11,g11)));\n' +
+      '  g00*=norm.x; g01*=norm.y; g10*=norm.z; g11*=norm.w;\n' +
+      '  float n00=dot(g00,vec2(fx.x,fy.x));\n' +
+      '  float n10=dot(g10,vec2(fx.y,fy.y));\n' +
+      '  float n01=dot(g01,vec2(fx.z,fy.z));\n' +
+      '  float n11=dot(g11,vec2(fx.w,fy.w));\n' +
+      '  vec2 fx2=fade(Pf.xy);\n' +
+      '  vec2 n_x=mix(vec2(n00,n01),vec2(n10,n11),fx2.x);\n' +
+      '  return 2.3*mix(n_x.x,n_x.y,fx2.y);\n' +
+      '}\n' +
+      'const int OCTAVES=4;\n' +
+      'float fbm(vec2 p){\n' +
+      '  float value=0.0, amp=1.0, freq=waveFrequency;\n' +
+      '  for(int i=0;i<OCTAVES;i++){ value+=amp*abs(cnoise(p)); p*=freq; amp*=waveAmplitude; }\n' +
+      '  return value;\n' +
+      '}\n' +
+      'float pattern(vec2 p){ vec2 p2=p-time*waveSpeed; return fbm(p+fbm(p2)); }\n' +
+      'const float bayer[64]=float[64](\n' +
+      '  0.0/64.0,48.0/64.0,12.0/64.0,60.0/64.0,3.0/64.0,51.0/64.0,15.0/64.0,63.0/64.0,\n' +
+      '  32.0/64.0,16.0/64.0,44.0/64.0,28.0/64.0,35.0/64.0,19.0/64.0,47.0/64.0,31.0/64.0,\n' +
+      '  8.0/64.0,56.0/64.0,4.0/64.0,52.0/64.0,11.0/64.0,59.0/64.0,7.0/64.0,55.0/64.0,\n' +
+      '  40.0/64.0,24.0/64.0,36.0/64.0,20.0/64.0,43.0/64.0,27.0/64.0,39.0/64.0,23.0/64.0,\n' +
+      '  2.0/64.0,50.0/64.0,14.0/64.0,62.0/64.0,1.0/64.0,49.0/64.0,13.0/64.0,61.0/64.0,\n' +
+      '  34.0/64.0,18.0/64.0,46.0/64.0,30.0/64.0,33.0/64.0,17.0/64.0,45.0/64.0,29.0/64.0,\n' +
+      '  10.0/64.0,58.0/64.0,6.0/64.0,54.0/64.0,9.0/64.0,57.0/64.0,5.0/64.0,53.0/64.0,\n' +
+      '  42.0/64.0,26.0/64.0,38.0/64.0,22.0/64.0,41.0/64.0,25.0/64.0,37.0/64.0,21.0/64.0);\n' +
+      'vec3 dither(vec2 fragBlock, vec3 color){\n' +
+      '  int x=int(mod(fragBlock.x,8.0));\n' +
+      '  int y=int(mod(fragBlock.y,8.0));\n' +
+      '  float threshold=bayer[y*8+x]-0.25;\n' +
+      '  float st=1.0/(colorNum-1.0);\n' +
+      '  color+=threshold*st;\n' +
+      '  color=clamp(color-0.2,0.0,1.0);\n' +
+      '  return floor(color*(colorNum-1.0)+0.5)/(colorNum-1.0);\n' +
+      '}\n' +
+      'void main(){\n' +
+      '  vec2 block=floor(gl_FragCoord.xy/pixelSize);\n' +
+      '  vec2 pfrag=(block+0.5)*pixelSize;\n' +
+      '  vec2 uv=pfrag/resolution;\n' +
+      '  uv-=0.5;\n' +
+      '  uv.x*=resolution.x/resolution.y;\n' +
+      '  float f=pattern(uv);\n' +
+      '  if(enableMouseInteraction==1){\n' +
+      '    vec2 m=(mousePos/resolution-0.5)*vec2(1.0,-1.0);\n' +
+      '    m.x*=resolution.x/resolution.y;\n' +
+      '    float d=length(uv-m);\n' +
+      '    f-=0.5*(1.0-smoothstep(0.0,mouseRadius,d));\n' +
+      '  }\n' +
+      '  vec3 col=mix(darkTone,lightTone,f);\n' +
+      '  col=dither(block,col);\n' +
+      '  fragColor=vec4(col,1.0);\n' +
+      '}';
 
-  // FRS-style palette: vermilion / cobalt / magenta on a waterPlane,
-  // slow speed so it morphs like drifting ink rather than waves
-  const URL_CONFIG =
-    "https://www.shadergradient.co/customize" +
-    "?animate=on" +
-    "&axesHelper=off" +
-    "&brightness=1.1" +
-    "&cAzimuthAngle=180" +
-    "&cDistance=3.9" +
-    "&cPolarAngle=115" +
-    "&cameraZoom=1" +
-    "&color1=%23ff4a1c" +      // vermilion
-    "&color2=%232b3bff" +      // cobalt
-    "&color3=%23d43fa8" +      // magenta
-    "&embedMode=off" +
-    "&envPreset=city" +
-    "&grain=on" +
-    "&lightType=3d" +
-    "&pixelDensity=1" +
-    "&positionX=-0.5" +
-    "&positionY=0.1" +
-    "&positionZ=0" +
-    "&reflection=0.1" +
-    "&rotationX=0" +
-    "&rotationY=0" +
-    "&rotationZ=235" +
-    "&shader=defaults" +
-    "&type=waterPlane" +
-    "&uDensity=1.8" +
-    "&uFrequency=5.5" +
-    "&uSpeed=0.25" +
-    "&uStrength=3" +
-    "&uTime=0.2" +
-    "&wireframe=false";
+    function compile(type, src) {
+      var s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+        console.error('dither shader:', gl.getShaderInfoLog(s));
+      return s;
+    }
+    var prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+    var vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
 
-  createRoot(document.getElementById("root")).render(
-    e(
-      ShaderGradientCanvas,
-      {
-        style: { position: "absolute", inset: 0 },
-        pixelDensity: 1,
-        fov: 45
-      },
-      e(ShaderGradient, { control: "query", urlString: URL_CONFIG })
-    )
-  );
-</script>
+    var U = {};
+    ['resolution','time','waveSpeed','waveFrequency','waveAmplitude','colorNum',
+     'pixelSize','mousePos','enableMouseInteraction','mouseRadius','darkTone','lightTone']
+      .forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+
+    // ── parameters (React Bits defaults, colours tuned to the card red) ──
+    var params = {
+      waveSpeed: 0.05, waveFrequency: 3.0, waveAmplitude: 0.3,
+      colorNum: 4.0, pixelSize: 2.0, mouseRadius: 0.3, enableMouse: 1,
+      dark: [0.30, 0.03, 0.03],   // deep maroon
+      light: [0.85, 0.20, 0.16]   // bright vermilion
+    };
+
+    var mouse = [0, 0];
+    window.addEventListener('mousemove', function (e) {
+      mouse[0] = e.clientX * (canvas.width / window.innerWidth);
+      mouse[1] = e.clientY * (canvas.height / window.innerHeight);
+    }, { passive: true });
+
+    function resize() {
+      var w = window.innerWidth, h = window.innerHeight;   // dpr = 1
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function draw(now) {
+      gl.useProgram(prog);
+      gl.bindVertexArray(vao);
+      gl.uniform2f(U.resolution, canvas.width, canvas.height);
+      gl.uniform1f(U.time, now * 0.001);
+      gl.uniform1f(U.waveSpeed, params.waveSpeed);
+      gl.uniform1f(U.waveFrequency, params.waveFrequency);
+      gl.uniform1f(U.waveAmplitude, params.waveAmplitude);
+      gl.uniform1f(U.colorNum, params.colorNum);
+      gl.uniform1f(U.pixelSize, params.pixelSize);
+      gl.uniform2f(U.mousePos, mouse[0], mouse[1]);
+      gl.uniform1i(U.enableMouseInteraction, params.enableMouse);
+      gl.uniform1f(U.mouseRadius, params.mouseRadius);
+      gl.uniform3fv(U.darkTone, params.dark);
+      gl.uniform3fv(U.lightTone, params.light);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      requestAnimationFrame(draw);
+    }
+    // render one frame immediately (works even where rAF is throttled)
+    draw(performance.now());
+    requestAnimationFrame(draw);
+  })();
+  </script>
+
+  <script>
+  /* Tilted card (ported from the React Bits "TiltedCard", motion/react)
+     + light-source-cast shadow that responds to it.
+     The card tilts toward the cursor (rotateX/rotateY) and scales up on
+     hover, all on critically-damped springs matching motion's
+     {stiffness:100, damping:30, mass:2}. It no longer moves on its own.
+     The shadow is re-wired: as the card lifts (hover scale) it rises off
+     the red "wall", so its light-projected shadow grows, offsets and
+     fades; the card's tilt nudges the shadow sideways. */
+  (function () {
+    var stage = document.querySelector('.card-stage');
+    var card = document.querySelector('.card-float');
+    var shadow = document.querySelector('.card-shadow');
+
+    var ROTATE_AMPLITUDE = 14;
+    var SCALE_ON_HOVER = 1.06;
+
+    // fixed point light, up and to the left; shadow casts down-right
+    var LIGHT = { fx: -0.42, fy: -0.30, z: 1300 };
+
+    // spring channels (motion/react physical spring: a = (-k·x - c·v)/m)
+    function S(x) { return { x: x, v: 0, t: x }; }
+    var rx = S(0), ry = S(0), sc = S(1);
+    var K = 100, C = 30, M = 2;
+    function integrate(s, dt) {
+      var a = (-K * (s.x - s.t) - C * s.v) / M;
+      s.v += a * dt; s.x += s.v * dt;
+    }
+
+    var hovering = false;
+    stage.addEventListener('mousemove', function (e) {
+      var r = stage.getBoundingClientRect();
+      var ox = e.clientX - r.left - r.width / 2;
+      var oy = e.clientY - r.top - r.height / 2;
+      rx.t = (oy / (r.height / 2)) * -ROTATE_AMPLITUDE;
+      ry.t = (ox / (r.width / 2)) * ROTATE_AMPLITUDE;
+    });
+    stage.addEventListener('mouseenter', function () {
+      hovering = true; sc.t = SCALE_ON_HOVER;
+    });
+    stage.addEventListener('mouseleave', function () {
+      hovering = false; sc.t = 1; rx.t = 0; ry.t = 0;
+    });
+
+    var last = performance.now();
+    function frame(now) {
+      var dt = Math.min((now - last) / 1000, 0.033); last = now;
+      integrate(rx, dt); integrate(ry, dt); integrate(sc, dt);
+
+      card.style.transform =
+        'rotateX(' + rx.x.toFixed(3) + 'deg) rotateY(' + ry.x.toFixed(3) +
+        'deg) scale(' + sc.x.toFixed(4) + ')';
+
+      // --- light-projected shadow, driven by the current pose ---
+      var W = window.innerWidth, H = window.innerHeight;
+      var cx = W / 2, cy = H / 2;
+      var Lx = cx + LIGHT.fx * W, Ly = cy + LIGHT.fy * H;
+
+      // hover lift (0..1) raises the card off the wall
+      var lift = (sc.x - 1) / (SCALE_ON_HOVER - 1);
+      lift = Math.max(0, Math.min(1.3, lift));
+      var z = 130 + 150 * lift;                 // height above wall
+      var k = LIGHT.z / (LIGHT.z - z);
+
+      var Sx = Lx + (cx - Lx) * k;
+      var Sy = Ly + (cy - Ly) * k;
+      // the tilt nudges where the shadow falls
+      var dx = (Sx - cx) + ry.x * 2.2;
+      var dy = (Sy - cy) - rx.x * 2.2;
+      var opacity = 0.5 - 0.12 * lift;          // fainter when higher
+      var shTilt = ry.x * 0.25;
+
+      shadow.style.transform =
+        'translate(-50%, -50%) translate(' + dx.toFixed(1) + 'px, ' +
+        dy.toFixed(1) + 'px) rotate(' + shTilt.toFixed(3) + 'deg) scale(' +
+        k.toFixed(3) + ')';
+      shadow.style.opacity = opacity.toFixed(3);
+
+      requestAnimationFrame(frame);
+    }
+
+    // render one pose immediately (works even where rAF is throttled)
+    frame(performance.now());
+    requestAnimationFrame(frame);
+  })();
+  </script>
+
 
 </body>
 </html>
