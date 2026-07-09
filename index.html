@@ -3,53 +3,130 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portfolio Background</title>
+<title>Design Portfolio — Vishaal Ravikumar</title>
+
+<!-- ============================================================
+     EMBER MESA · MOUSE VARIATION
+     ------------------------------------------------------------
+     No scroll, no zoom. The composition is static until the
+     pointer moves: layers shift horizontally by a few pixels,
+     each by a different amount, keyed to how far the mouse sits
+     from the screen's center.
+
+       mouse left  -> rocks follow left (most), citadel follows
+                      a little, mountains counter-move right
+       mouse right -> mirrored
+       mouse center / leaves the window -> everything eases home
+
+     The offsets are deliberately small — they should read as the
+     scene breathing, not the scene chasing the cursor. Each layer
+     carries a slight scale bleed so its edges never pull into view.
+
+     Tuning lives in the SWAY table in the <script> below.
+     ============================================================ -->
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jacquard+12&display=swap" rel="stylesheet">
+
+<link rel="preload" as="image" href="assets/sky.webp">
+<link rel="preload" as="image" href="assets/mountains.webp">
+<link rel="preload" as="image" href="assets/citadel.webp">
+<link rel="preload" as="image" href="assets/rocks.webp">
+<link rel="preload" as="image" href="assets/card.webp">
+
 <style>
+  :root {
+    --sky-deep: #1a1f8f;   /* fallback behind the sky image */
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   html, body {
     height: 100%;
-    overflow: hidden;
-    background: #a01e1e;   /* fallback while the image loads */
+    overflow: hidden;          /* nothing scrolls in this variant */
+    background: var(--sky-deep);
   }
 
-  /* poppy-field backdrop behind everything */
-  body {
-    background-image: url("poppies.png");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-  }
+  /* ================= THE ART STAGE ================= */
+  /* Plain 2D stacking — no perspective needed, DOM order back to
+     front: sky, mountains, citadel, rocks. */
 
-  /* ---------- Dithered wave field (over the backdrop) ---------- */
-  /* shader is unchanged; it just blends over the image so the poppy
-     field reads through the dither texture */
-  #dither {
+  .stage {
     position: fixed;
     inset: 0;
-    z-index: 1;
+    overflow: hidden;
+  }
+
+  .layer {
+    position: absolute;
+    inset: 0;
+    will-change: transform;
+  }
+
+  .layer img {
     display: block;
     width: 100%;
     height: 100%;
-    mix-blend-mode: overlay;
-    opacity: 0.6;
+    object-fit: cover;
   }
 
-  /* ---------- Tarot card ---------- */
+  /* sky: full height at natural aspect, slid sideways so the MOON
+     (at ~89% across the plate) sits dead center; the layer's
+     background color fills the uncovered strip at the right edge.
+     Widened sideways (its bleed) since the sky sways too now. */
+  #layer-sky { background: #030ca6; left: -12px; right: -12px; }
+  #layer-sky img {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 100%;
+    width: auto;
+    transform: translateX(-89%);
+    image-rendering: pixelated;   /* keep the pixel-art crunch */
+  }
 
-  /* perspective stage: centres the card and gives it 3D depth */
+  /* mountains: sized by viewport HEIGHT at natural aspect so the
+     summit never crops on wide screens; sits 12vh lower so the sky
+     stays open; side edges feather into the sky like haze */
+  #layer-far img {
+    position: absolute;
+    top: 12vh;
+    left: 50%;
+    height: 100vh;
+    width: auto;
+    transform: translateX(-50%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%);
+  }
+
+  /* citadel + rocks: full-bleed, ground line on the viewport bottom */
+  #layer-mid  img,
+  #layer-fore img { object-position: center bottom; }
+
+  /* Bleed: moving layers are pre-scaled a touch past the viewport so
+     a few pixels of sway never pulls an edge into view. The GSAP
+     x-tweens preserve this scale. */
+  #layer-far  { scale: 1.03; }
+  #layer-mid  { scale: 1.03; }
+  #layer-fore { scale: 1.08; }
+
+  /* ---------- Tarot card (ported from Program 004) ---------- */
+  /* No wall behind the card here, so the light-projected cast shadow
+     stays behind in Program 004 — the drop-shadow grounds it instead. */
+
+  /* perspective stage: centres the card and gives it 3D depth.
+     GSAP owns its centering transform (xPercent/yPercent) so the
+     sway x composes with it — see the script below. */
   .card-stage {
     position: fixed;
     left: 50%;
     top: 50%;
-    z-index: 12;   /* above dither (1), shadow (6) */
+    z-index: 20;   /* above every scene layer */
     height: min(64vh, 150vw);
-    aspect-ratio: 988 / 1568;
-    transform: translate(-50%, -50%);
+    aspect-ratio: 1024 / 1536;   /* matches the card plate exactly */
     perspective: 1000px;
+    will-change: transform;
   }
 
   /* the card itself — JS tilts it toward the cursor (rotateX/Y + scale) */
@@ -58,28 +135,7 @@
     inset: 0;
     transform-style: preserve-3d;
     will-change: transform;
-    /* tight contact shadow for edge grounding; the big cast shadow
-       is a separate, light-source-projected element */
-    filter: drop-shadow(0 4px 6px rgba(60, 0, 0, 0.35));
-  }
-
-  /* dynamic cast shadow — a card-shaped dark shape projected onto the
-     red wall by a fixed light source. JS positions/scales it each frame;
-     these are just the resting defaults so it looks right before JS runs. */
-  .card-shadow {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    z-index: 6;                 /* over the kolam wall, under the card */
-    height: min(64vh, 150vw);
-    aspect-ratio: 988 / 1568;
-    border-radius: 26px;
-    background: #360606;        /* dark maroon: red wall in shadow */
-    transform: translate(-50%, -50%) translate(120px, 55px) scale(1.18);
-    filter: blur(40px);
-    opacity: 0.5;
-    will-change: transform, opacity;
-    pointer-events: none;
+    filter: drop-shadow(0 18px 28px rgba(5, 4, 25, 0.55));
   }
 
   .card-rim {
@@ -89,13 +145,13 @@
     overflow: hidden;
   }
 
-
   .card-rim img {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
     filter: saturate(1.05) contrast(1.03);
+    image-rendering: pixelated;   /* the card face is pixel art */
   }
 
   /* name lockup in the red field at the top of the card */
@@ -139,17 +195,17 @@
     text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
   }
 
-  /* sound toggle */
+  /* sound toggle (ported from Program 004; tinted for the blue night) */
   #sound-toggle {
     position: fixed;
     right: 22px;
     bottom: 22px;
-    z-index: 20;
+    z-index: 30;
     width: 46px;
     height: 46px;
     border-radius: 50%;
     border: 1px solid rgba(243, 233, 219, 0.25);
-    background: rgba(20, 6, 6, 0.45);
+    background: rgba(5, 4, 25, 0.45);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     color: #f3e9db;
@@ -166,7 +222,7 @@
   #sound-toggle.playing .icon-off { display: none; }
   /* soft pulse ring while playing */
   #sound-toggle.playing {
-    background: rgba(60, 10, 10, 0.6);
+    background: rgba(10, 12, 60, 0.6);
     box-shadow: 0 0 0 0 rgba(243, 233, 219, 0.35);
     animation: sound-pulse 2.4s ease-out infinite;
   }
@@ -179,221 +235,100 @@
 </head>
 <body>
 
-  <canvas id="dither" aria-hidden="true"></canvas>
+<!-- Four depth planes, back to front (same plates as the poster). -->
+<div class="stage" aria-hidden="true">
+  <div class="layer" id="layer-sky"><img  src="assets/sky.webp"       alt=""></div>
+  <div class="layer" id="layer-far"><img  src="assets/mountains.webp" alt=""></div>
+  <div class="layer" id="layer-mid"><img  src="assets/citadel.webp"   alt=""></div>
+  <div class="layer" id="layer-fore"><img src="assets/rocks.webp"     alt=""></div>
+</div>
 
-  <div class="card-shadow" aria-hidden="true"></div>
-
-  <div class="card-stage">
-    <div class="card-float">
-      <div class="card-rim">
-        <img src="card.png" alt="Tarot card">
-        <div class="card-title">
-          <h1>Vishaal Ravikumar</h1>
-        </div>
-        <div class="card-role">Sr. Product Designer</div>
+<!-- Tarot card — nearest "layer": sways the most and tilts on hover. -->
+<div class="card-stage">
+  <div class="card-float">
+    <div class="card-rim">
+      <img src="assets/card.webp" alt="Tarot card">
+      <div class="card-title">
+        <h1>Vishaal Ravikumar</h1>
       </div>
+      <div class="card-role">Sr. Product Designer</div>
     </div>
   </div>
+</div>
 
-  <button id="sound-toggle" aria-label="Toggle ambient sound" title="Ambient sound">
-    <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M11 5 6 9H3v6h3l5 4V5Z"/><line x1="22" y1="9" x2="16" y2="15"/>
-      <line x1="16" y1="9" x2="22" y2="15"/>
-    </svg>
-    <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>
-      <path d="M18.5 6a8 8 0 0 1 0 12"/>
-    </svg>
-  </button>
+<button id="sound-toggle" aria-label="Toggle ambient sound" title="Ambient sound">
+  <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M11 5 6 9H3v6h3l5 4V5Z"/><line x1="22" y1="9" x2="16" y2="15"/>
+    <line x1="16" y1="9" x2="22" y2="15"/>
+  </svg>
+  <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+    <path d="M18.5 6a8 8 0 0 1 0 12"/>
+  </svg>
+</button>
 
-  <script>
-  /* Dithered wave background — ported from the React Bits "Dither"
-     component (react-three-fiber + postprocessing) to a single
-     self-contained WebGL2 pass, no dependencies. Same FBM wave field,
-     Bayer 8x8 ordered dither and posterization, tuned to the card red. */
-  (function () {
-    var canvas = document.getElementById('dither');
-    var gl = canvas.getContext('webgl2', { antialias: true });
-    if (!gl) return;   // graceful: red background shows through
+<!-- GSAP core from cdnjs (no ScrollTrigger needed here) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 
-    var VERT =
-      '#version 300 es\n' +
-      'void main(){\n' +
-      '  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));\n' +
-      '  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);\n' +
-      '}';
+<script>
+  /* ==========================================================
+     SWAY TABLE — tweak the pointer parallax here.
+     ----------------------------------------------------------
+     x : max horizontal shift in px when the mouse reaches the
+         screen edge. Positive = moves WITH the mouse, negative
+         = counter-moves. Keep |x| inside the layer's scale bleed
+         (see CSS) so edges never show.
+     ========================================================== */
+  const SWAY = [
+    { sel: '#layer-sky',  x:  -6 },   // moon counter-drifts, gentlest
+    { sel: '#layer-far',  x: -10 },   // mountains counter-move
+    { sel: '#layer-mid',  x:  13 },   // citadel follows a little
+    { sel: '#layer-fore', x:  38 },   // rocks follow the most
+    { sel: '.card-stage', x:  48 },   // the card is nearest of all
+  ];
 
-    var FRAG =
-      '#version 300 es\n' +
-      'precision highp float;\n' +
-      'out vec4 fragColor;\n' +
-      'uniform vec2 resolution;\n' +
-      'uniform float time;\n' +
-      'uniform float waveSpeed;\n' +
-      'uniform float waveFrequency;\n' +
-      'uniform float waveAmplitude;\n' +
-      'uniform float colorNum;\n' +
-      'uniform float pixelSize;\n' +
-      'uniform vec2 mousePos;\n' +
-      'uniform int enableMouseInteraction;\n' +
-      'uniform float mouseRadius;\n' +
-      'uniform vec3 darkTone;\n' +
-      'uniform vec3 lightTone;\n' +
-      'vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}\n' +
-      'vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}\n' +
-      'vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}\n' +
-      'vec2 fade(vec2 t){return t*t*t*(t*(t*6.0-15.0)+10.0);}\n' +
-      'float cnoise(vec2 P){\n' +
-      '  vec4 Pi=floor(P.xyxy)+vec4(0.0,0.0,1.0,1.0);\n' +
-      '  vec4 Pf=fract(P.xyxy)-vec4(0.0,0.0,1.0,1.0);\n' +
-      '  Pi=mod289(Pi);\n' +
-      '  vec4 ix=Pi.xzxz, iy=Pi.yyww, fx=Pf.xzxz, fy=Pf.yyww;\n' +
-      '  vec4 i=permute(permute(ix)+iy);\n' +
-      '  vec4 gx=fract(i*(1.0/41.0))*2.0-1.0;\n' +
-      '  vec4 gy=abs(gx)-0.5;\n' +
-      '  vec4 tx=floor(gx+0.5);\n' +
-      '  gx=gx-tx;\n' +
-      '  vec2 g00=vec2(gx.x,gy.x), g10=vec2(gx.y,gy.y), g01=vec2(gx.z,gy.z), g11=vec2(gx.w,gy.w);\n' +
-      '  vec4 norm=taylorInvSqrt(vec4(dot(g00,g00),dot(g01,g01),dot(g10,g10),dot(g11,g11)));\n' +
-      '  g00*=norm.x; g01*=norm.y; g10*=norm.z; g11*=norm.w;\n' +
-      '  float n00=dot(g00,vec2(fx.x,fy.x));\n' +
-      '  float n10=dot(g10,vec2(fx.y,fy.y));\n' +
-      '  float n01=dot(g01,vec2(fx.z,fy.z));\n' +
-      '  float n11=dot(g11,vec2(fx.w,fy.w));\n' +
-      '  vec2 fx2=fade(Pf.xy);\n' +
-      '  vec2 n_x=mix(vec2(n00,n01),vec2(n10,n11),fx2.x);\n' +
-      '  return 2.3*mix(n_x.x,n_x.y,fx2.y);\n' +
-      '}\n' +
-      'const int OCTAVES=4;\n' +
-      'float fbm(vec2 p){\n' +
-      '  float value=0.0, amp=1.0, freq=waveFrequency;\n' +
-      '  for(int i=0;i<OCTAVES;i++){ value+=amp*abs(cnoise(p)); p*=freq; amp*=waveAmplitude; }\n' +
-      '  return value;\n' +
-      '}\n' +
-      'float pattern(vec2 p){ vec2 p2=p-time*waveSpeed; return fbm(p+fbm(p2)); }\n' +
-      'const float bayer[64]=float[64](\n' +
-      '  0.0/64.0,48.0/64.0,12.0/64.0,60.0/64.0,3.0/64.0,51.0/64.0,15.0/64.0,63.0/64.0,\n' +
-      '  32.0/64.0,16.0/64.0,44.0/64.0,28.0/64.0,35.0/64.0,19.0/64.0,47.0/64.0,31.0/64.0,\n' +
-      '  8.0/64.0,56.0/64.0,4.0/64.0,52.0/64.0,11.0/64.0,59.0/64.0,7.0/64.0,55.0/64.0,\n' +
-      '  40.0/64.0,24.0/64.0,36.0/64.0,20.0/64.0,43.0/64.0,27.0/64.0,39.0/64.0,23.0/64.0,\n' +
-      '  2.0/64.0,50.0/64.0,14.0/64.0,62.0/64.0,1.0/64.0,49.0/64.0,13.0/64.0,61.0/64.0,\n' +
-      '  34.0/64.0,18.0/64.0,46.0/64.0,30.0/64.0,33.0/64.0,17.0/64.0,45.0/64.0,29.0/64.0,\n' +
-      '  10.0/64.0,58.0/64.0,6.0/64.0,54.0/64.0,9.0/64.0,57.0/64.0,5.0/64.0,53.0/64.0,\n' +
-      '  42.0/64.0,26.0/64.0,38.0/64.0,22.0/64.0,41.0/64.0,25.0/64.0,37.0/64.0,21.0/64.0);\n' +
-      'vec3 dither(vec2 fragBlock, vec3 color){\n' +
-      '  int x=int(mod(fragBlock.x,8.0));\n' +
-      '  int y=int(mod(fragBlock.y,8.0));\n' +
-      '  float threshold=bayer[y*8+x]-0.25;\n' +
-      '  float st=1.0/(colorNum-1.0);\n' +
-      '  color+=threshold*st;\n' +
-      '  color=clamp(color-0.2,0.0,1.0);\n' +
-      '  return floor(color*(colorNum-1.0)+0.5)/(colorNum-1.0);\n' +
-      '}\n' +
-      'void main(){\n' +
-      '  vec2 block=floor(gl_FragCoord.xy/pixelSize);\n' +
-      '  vec2 pfrag=(block+0.5)*pixelSize;\n' +
-      '  vec2 uv=pfrag/resolution;\n' +
-      '  uv-=0.5;\n' +
-      '  uv.x*=resolution.x/resolution.y;\n' +
-      '  float f=pattern(uv);\n' +
-      '  if(enableMouseInteraction==1){\n' +
-      '    vec2 m=(mousePos/resolution-0.5)*vec2(1.0,-1.0);\n' +
-      '    m.x*=resolution.x/resolution.y;\n' +
-      '    float d=length(uv-m);\n' +
-      '    f-=0.5*(1.0-smoothstep(0.0,mouseRadius,d));\n' +
-      '  }\n' +
-      '  vec3 col=mix(darkTone,lightTone,f);\n' +
-      '  col=dither(block,col);\n' +
-      '  fragColor=vec4(col,1.0);\n' +
-      '}';
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    function compile(type, src) {
-      var s = gl.createShader(type);
-      gl.shaderSource(s, src); gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-        console.error('dither shader:', gl.getShaderInfoLog(s));
-      return s;
-    }
-    var prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
-    var vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
+  // GSAP owns the card stage's centering so the sway x composes with
+  // it instead of overwriting the CSS translate(-50%, -50%)
+  gsap.set('.card-stage', { xPercent: -50, yPercent: -50 });
 
-    var U = {};
-    ['resolution','time','waveSpeed','waveFrequency','waveAmplitude','colorNum',
-     'pixelSize','mousePos','enableMouseInteraction','mouseRadius','darkTone','lightTone']
-      .forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+  if (!reduceMotion) {
+    // one lazy tween per layer: quickTo re-targets smoothly on every
+    // mousemove, giving the drift its floaty, eased follow
+    const movers = SWAY
+      .filter(l => l.x !== 0)
+      .map(l => ({ amp: l.x, to: gsap.quickTo(l.sel, 'x', { duration: 0.9, ease: 'power3.out' }) }));
 
-    // ── parameters (React Bits defaults, colours tuned to the card red) ──
-    var params = {
-      waveSpeed: 0.05, waveFrequency: 3.0, waveAmplitude: 0.3,
-      colorNum: 4.0, pixelSize: 2.0, mouseRadius: 0.3, enableMouse: 1,
-      dark: [0.30, 0.03, 0.03],   // deep maroon
-      light: [0.85, 0.20, 0.16]   // bright vermilion
-    };
+    window.addEventListener('mousemove', (e) => {
+      // -1 at the left edge, 0 at center, +1 at the right edge
+      const nx = (e.clientX / window.innerWidth - 0.5) * 2;
+      movers.forEach(m => m.to(nx * m.amp));
+    });
 
-    var mouse = [0, 0];
-    window.addEventListener('mousemove', function (e) {
-      mouse[0] = e.clientX * (canvas.width / window.innerWidth);
-      mouse[1] = e.clientY * (canvas.height / window.innerHeight);
-    }, { passive: true });
+    // pointer gone -> everything eases back to the resting frame
+    document.documentElement.addEventListener('mouseleave', () => {
+      movers.forEach(m => m.to(0));
+    });
+  }
+</script>
 
-    function resize() {
-      var w = window.innerWidth, h = window.innerHeight;   // dpr = 1
-      canvas.width = w; canvas.height = h;
-      gl.viewport(0, 0, w, h);
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    function draw(now) {
-      gl.useProgram(prog);
-      gl.bindVertexArray(vao);
-      gl.uniform2f(U.resolution, canvas.width, canvas.height);
-      gl.uniform1f(U.time, now * 0.001);
-      gl.uniform1f(U.waveSpeed, params.waveSpeed);
-      gl.uniform1f(U.waveFrequency, params.waveFrequency);
-      gl.uniform1f(U.waveAmplitude, params.waveAmplitude);
-      gl.uniform1f(U.colorNum, params.colorNum);
-      gl.uniform1f(U.pixelSize, params.pixelSize);
-      gl.uniform2f(U.mousePos, mouse[0], mouse[1]);
-      gl.uniform1i(U.enableMouseInteraction, params.enableMouse);
-      gl.uniform1f(U.mouseRadius, params.mouseRadius);
-      gl.uniform3fv(U.darkTone, params.dark);
-      gl.uniform3fv(U.lightTone, params.light);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      requestAnimationFrame(draw);
-    }
-    // render one frame immediately (works even where rAF is throttled)
-    draw(performance.now());
-    requestAnimationFrame(draw);
-  })();
-  </script>
-
-  <script>
-  /* Tilted card (ported from the React Bits "TiltedCard", motion/react)
-     + light-source-cast shadow that responds to it.
+<script>
+  /* Tilted card (ported from Program 004 / React Bits "TiltedCard").
      The card tilts toward the cursor (rotateX/rotateY) and scales up on
-     hover, all on critically-damped springs matching motion's
-     {stiffness:100, damping:30, mass:2}. It no longer moves on its own.
-     The shadow is re-wired: as the card lifts (hover scale) it rises off
-     the red "wall", so its light-projected shadow grows, offsets and
-     fades; the card's tilt nudges the shadow sideways. */
+     hover, on critically-damped springs matching motion/react's
+     {stiffness:100, damping:30, mass:2}. Runs on the inner .card-float,
+     so it composes freely with the GSAP sway on .card-stage. */
   (function () {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
     var stage = document.querySelector('.card-stage');
     var card = document.querySelector('.card-float');
-    var shadow = document.querySelector('.card-shadow');
 
     var ROTATE_AMPLITUDE = 14;
     var SCALE_ON_HOVER = 1.06;
-
-    // fixed point light, up and to the left; shadow casts down-right
-    var LIGHT = { fx: -0.42, fy: -0.30, z: 1300 };
 
     // spring channels (motion/react physical spring: a = (-k·x - c·v)/m)
     function S(x) { return { x: x, v: 0, t: x }; }
@@ -404,7 +339,6 @@
       s.v += a * dt; s.x += s.v * dt;
     }
 
-    var hovering = false;
     stage.addEventListener('mousemove', function (e) {
       var r = stage.getBoundingClientRect();
       var ox = e.clientX - r.left - r.width / 2;
@@ -412,11 +346,9 @@
       rx.t = (oy / (r.height / 2)) * -ROTATE_AMPLITUDE;
       ry.t = (ox / (r.width / 2)) * ROTATE_AMPLITUDE;
     });
-    stage.addEventListener('mouseenter', function () {
-      hovering = true; sc.t = SCALE_ON_HOVER;
-    });
+    stage.addEventListener('mouseenter', function () { sc.t = SCALE_ON_HOVER; });
     stage.addEventListener('mouseleave', function () {
-      hovering = false; sc.t = 1; rx.t = 0; ry.t = 0;
+      sc.t = 1; rx.t = 0; ry.t = 0;
     });
 
     var last = performance.now();
@@ -428,31 +360,6 @@
         'rotateX(' + rx.x.toFixed(3) + 'deg) rotateY(' + ry.x.toFixed(3) +
         'deg) scale(' + sc.x.toFixed(4) + ')';
 
-      // --- light-projected shadow, driven by the current pose ---
-      var W = window.innerWidth, H = window.innerHeight;
-      var cx = W / 2, cy = H / 2;
-      var Lx = cx + LIGHT.fx * W, Ly = cy + LIGHT.fy * H;
-
-      // hover lift (0..1) raises the card off the wall
-      var lift = (sc.x - 1) / (SCALE_ON_HOVER - 1);
-      lift = Math.max(0, Math.min(1.3, lift));
-      var z = 130 + 150 * lift;                 // height above wall
-      var k = LIGHT.z / (LIGHT.z - z);
-
-      var Sx = Lx + (cx - Lx) * k;
-      var Sy = Ly + (cy - Ly) * k;
-      // the tilt nudges where the shadow falls
-      var dx = (Sx - cx) + ry.x * 2.2;
-      var dy = (Sy - cy) - rx.x * 2.2;
-      var opacity = 0.5 - 0.12 * lift;          // fainter when higher
-      var shTilt = ry.x * 0.25;
-
-      shadow.style.transform =
-        'translate(-50%, -50%) translate(' + dx.toFixed(1) + 'px, ' +
-        dy.toFixed(1) + 'px) rotate(' + shTilt.toFixed(3) + 'deg) scale(' +
-        k.toFixed(3) + ')';
-      shadow.style.opacity = opacity.toFixed(3);
-
       requestAnimationFrame(frame);
     }
 
@@ -460,15 +367,16 @@
     frame(performance.now());
     requestAnimationFrame(frame);
   })();
-  </script>
+</script>
 
-  <script>
-  /* Dark-fantasy analog synth — arpeggiated suspended chords, 1970s
-     progressive feel. Pure Web Audio, no dependencies. Detuned-saw voices
-     through a resonant low-pass with per-note pluck envelopes; an 8th-note
-     arpeggiator cycles suspended voicings over an 8-bar Aeolian/harmonic-
-     minor progression, under a low drone, slow filter breathing, tape
-     delay and a generated convolution reverb. Starts on user gesture. */
+<script>
+  /* Dark-fantasy analog synth (ported from Program 004) — arpeggiated
+     suspended chords, 1970s progressive feel. Pure Web Audio, no
+     dependencies. Detuned-saw voices through a resonant low-pass with
+     per-note pluck envelopes; an 8th-note arpeggiator cycles suspended
+     voicings over an 8-bar Aeolian/harmonic-minor progression, under a
+     low drone, slow filter breathing, tape delay and a generated
+     convolution reverb. Starts on user gesture. */
   (function () {
     var btn = document.getElementById('sound-toggle');
     var ctx = null, master = null, tone = null, lfoDepth = null,
@@ -528,7 +436,7 @@
       tone.frequency.value = 4600; tone.Q.value = 0.6;
       tone.connect(drive);
 
-      // tape-style feedback delay (dotted-eighth-ish), now warmer & deeper
+      // tape-style feedback delay (dotted-eighth-ish), warm & deep
       var delay = ctx.createDelay(1.0);
       delay.delayTime.value = stepDur * 1.5;
       var fb = ctx.createGain(); fb.gain.value = 0.46;
@@ -546,7 +454,7 @@
       var wowAmt = ctx.createGain(); wowAmt.gain.value = 0.0032;
       wow.connect(wowAmt); wowAmt.connect(delay.delayTime); wow.start();
 
-      // convolution reverb — longer tail, more of it in the mix
+      // convolution reverb — long tail
       var conv = ctx.createConvolver(); conv.buffer = makeReverbIR(3.6, 2.3);
       var revReturn = ctx.createGain(); revReturn.gain.value = 0.62;
       conv.connect(revReturn); revReturn.connect(tone);
@@ -645,7 +553,6 @@
     // expose for quick diagnostics
     window.__synth = { start: start, stop: stop, get state(){ return ctx && ctx.state; } };
   })();
-  </script>
-
+</script>
 </body>
 </html>
