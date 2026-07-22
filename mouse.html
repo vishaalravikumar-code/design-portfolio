@@ -707,14 +707,16 @@
     function go(to) {
       if (animating || to === current) return;
       var fromEl = pageEl(current), toEl = pageEl(to);
-      var dir = to > current ? 1 : -1;   // +1 forward (incoming from right)
+      // +1 = moving down the list: incoming rises from below, outgoing
+      // exits up. -1 reverses (incoming drops in from above).
+      var dir = to > current ? 1 : -1;
       animating = true;
       setActiveNav(to);
 
       // reduced motion: hard cut, no slide
       if (reduceMotion) {
         DEPTHS.forEach(function (d) {
-          gsap.set(group(toEl, d.key), { xPercent: 0 });
+          gsap.set(group(toEl, d.key), { yPercent: 0 });
         });
         toEl.classList.add('is-current'); toEl.removeAttribute('aria-hidden');
         fromEl.classList.remove('is-current'); fromEl.setAttribute('aria-hidden', 'true');
@@ -723,9 +725,10 @@
       }
 
       // reveal incoming and park each of its planes fully off-screen
+      // (below when moving down, above when moving up)
       gsap.set(toEl, { visibility: 'visible' });
       DEPTHS.forEach(function (d) {
-        gsap.set(group(toEl, d.key), { xPercent: dir * 100 });
+        gsap.set(group(toEl, d.key), { yPercent: dir * 100 });
       });
 
       var tl = gsap.timeline({
@@ -735,7 +738,7 @@
           fromEl.setAttribute('aria-hidden', 'true');
           gsap.set(fromEl, { visibility: 'hidden' });
           DEPTHS.forEach(function (d) {
-            gsap.set(group(fromEl, d.key), { xPercent: 0 });
+            gsap.set(group(fromEl, d.key), { yPercent: 0 });
           });
           toEl.classList.add('is-current');
           toEl.removeAttribute('aria-hidden');
@@ -747,9 +750,9 @@
       DEPTHS.forEach(function (d) {
         // outgoing plane slides away; incoming plane slides home
         tl.to(group(fromEl, d.key),
-              { xPercent: -dir * 100, duration: DURATION, ease: d.ease }, d.at);
+              { yPercent: -dir * 100, duration: DURATION, ease: d.ease }, d.at);
         tl.to(group(toEl, d.key),
-              { xPercent: 0, duration: DURATION, ease: d.ease }, d.at);
+              { yPercent: 0, duration: DURATION, ease: d.ease }, d.at);
       });
     }
 
