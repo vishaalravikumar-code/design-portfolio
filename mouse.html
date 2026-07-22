@@ -494,7 +494,14 @@
      distant ziggurat, and a temple interior whose portal is cut out so
      the scene shows through it. All full-bleed and centered so the
      planes register the way the art was composed. */
-  .page-about  .temp-sky  { background: url('assets/about-sky.jpg')  center / cover no-repeat; }
+  .page-about  .temp-sky  {
+    background-image: url('assets/about-sky.jpg');
+    background-repeat: no-repeat;
+    /* zoom the sky ~2.1x (bigger sun) and right-align it so the sun
+       slides up into the temple's round window */
+    background-size: 210%;
+    background-position: 100% 52%;
+  }
   .page-about  .temp-far  { background: url('assets/about-mid.webp')  center / cover no-repeat; }
   .page-about  .temp-fore { background: url('assets/about-fore.webp') center / cover no-repeat; }
   /* placeholder sun disc + horizon hump no longer needed here */
