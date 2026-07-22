@@ -367,6 +367,18 @@
     scale: 1.3;
   }
 
+  /* active page: bolder label + a larger filled dot */
+  .nav-item.is-active .nav-label,
+  .nav-item.is-active .nav-roman {
+    font-weight: 700;
+  }
+
+  /* scale (not width/height) so the dot enlarges in place — no layout
+     shift, stays centered on the spine, numerals stay column-aligned */
+  .nav-item.is-active .nav-dot {
+    scale: 1.6;
+  }
+
   /* vertical line connecting all nav items — spans from the center of
      the first dot to the center of the last, so it never pokes out */
   .nav-spine {
@@ -396,7 +408,7 @@
 <!-- Side navigation -->
 <nav class="side-nav">
   <div class="nav-spine"></div>
-  <a href="#home" class="nav-item">
+  <a href="#home" class="nav-item is-active" aria-current="page">
     <div class="nav-dot"></div>
     <div class="nav-roman">I</div>
     <div class="nav-line"></div>
