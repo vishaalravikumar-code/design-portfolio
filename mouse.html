@@ -502,8 +502,10 @@
     background-size: 210%;
     background-position: 100% 52%;
   }
-  .page-about  .temp-far  { background: url('assets/about-mid.webp')  center / cover no-repeat; }
-  .page-about  .temp-fore { background: url('assets/about-fore.webp') center / cover no-repeat; }
+  .page-about  .temp-far  { background: url('assets/about-mid.webp')  center / cover no-repeat; scale: 1.05; }
+  /* top origin keeps the round window (and the sun in it) anchored
+     while the frame gets its sway bleed */
+  .page-about  .temp-fore { background: url('assets/about-fore.webp') center / cover no-repeat; scale: 1.06; transform-origin: center top; }
   /* placeholder sun disc + horizon hump no longer needed here */
   .page-about  .temp-far::after,
   .page-about  .temp-fore::after { display: none; }
@@ -658,10 +660,17 @@
          (see CSS) so edges never show.
      ========================================================== */
   const SWAY = [
+    // Home
     { sel: '#layer-sky',  x:  -6 },   // moon counter-drifts, gentlest
     { sel: '#layer-far',  x: -10 },   // hills counter-move
     { sel: '#layer-fore', x:  30 },   // the ziggurat follows the mouse
     { sel: '.card-stage', x:  48 },   // the card is nearest of all
+    // About — same idea: the far sun/dunes counter-drift while the
+    // temple frame (nearest) follows the mouse, so the view through the
+    // portal parallaxes. Amplitudes stay inside the scale bleed below.
+    { sel: '.page-about .temp-sky',  x:  -6 },   // sun/sky, gentlest
+    { sel: '.page-about .temp-far',  x: -12 },   // dunes counter-move
+    { sel: '.page-about .temp-fore', x:  18 },   // temple frame follows
   ];
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
