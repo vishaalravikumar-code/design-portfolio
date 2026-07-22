@@ -498,9 +498,11 @@
     background-image: url('assets/about-sky.jpg');
     background-repeat: no-repeat;
     /* zoom the sky ~2.1x (bigger sun) and right-align it so the sun
-       slides up into the temple's round window */
+       sits in the temple's round window. The vertical 46% keeps the
+       sun's whole disc clear of the viewport top, so it never shows a
+       clipped edge when the frame lifts away during a page transition. */
     background-size: 210%;
-    background-position: 100% 52%;
+    background-position: 100% 46%;
   }
   .page-about  .temp-far  { background: url('assets/about-mid.webp')  center / cover no-repeat; scale: 1.05; }
   /* top origin keeps the round window (and the sun in it) anchored
