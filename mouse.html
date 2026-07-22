@@ -34,6 +34,8 @@
 <link rel="preload" as="image" href="assets/Card_01.PNG">
 <link rel="preload" as="image" href="assets/Card_02.PNG">
 <link rel="preload" as="image" href="assets/about-sky.jpg">
+<link rel="preload" as="image" href="assets/about-mid.webp">
+<link rel="preload" as="image" href="assets/about-fore.webp">
 
 <style>
   :root {
@@ -318,6 +320,17 @@
     flex-direction: column;
     gap: 32px;
     pointer-events: auto;
+    /* nav ink is themeable per page (dark on light scenes, light on
+       dark scenes) and cross-fades as pages transition */
+    --nav-ink: #5e3417;
+    --nav-ink-hover: #7a4520;
+    --nav-glow: rgba(94, 52, 23, 0.6);
+  }
+  /* light tone for dark scenes (e.g. the About temple interior) */
+  .side-nav[data-tone="light"] {
+    --nav-ink: #f3e9db;
+    --nav-ink-hover: #ffffff;
+    --nav-glow: rgba(243, 233, 219, 0.7);
   }
 
   .nav-item {
@@ -325,14 +338,14 @@
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: color 0.3s ease;
+    transition: color 0.5s ease;
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     text-decoration: none;
-    color: #5e3417;   /* dark ziggurat brown — ~6.5:1 on the gold sky (WCAG AA) */
+    color: var(--nav-ink);   /* dark on light scenes, light on dark ones */
   }
 
   .nav-item:hover {
-    color: #7a4520;
+    color: var(--nav-ink-hover);
   }
 
   .nav-roman {
@@ -358,13 +371,13 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #5e3417;
-    transition: all 0.3s ease;
+    background: var(--nav-ink);
+    transition: background 0.5s ease, box-shadow 0.3s ease, scale 0.3s ease;
   }
 
   .nav-item:hover .nav-dot {
-    background: #7a4520;
-    box-shadow: 0 0 8px rgba(94, 52, 23, 0.6);
+    background: var(--nav-ink-hover);
+    box-shadow: 0 0 8px var(--nav-glow);
     scale: 1.3;
   }
 
@@ -388,7 +401,8 @@
     top: 8.5px;
     width: 1px;
     height: 147px;
-    background: #5e3417;
+    background: var(--nav-ink);
+    transition: background 0.5s ease;
     z-index: -1;
   }
 
@@ -476,14 +490,19 @@
 
   /* per-page temporary palettes (kept light so the dark-brown side nav
      stays legible until the real art arrives) */
-  /* About uses the real sky plate — its sun and tone are baked in, so
-     the placeholder sun disc and horizon hump are turned off here */
-  .page-about  .temp-sky {
-    background: url('assets/about-sky.jpg') center / cover no-repeat;
-  }
+  /* About is a real 3-plane matte: the orange sky, the dune ridges +
+     distant ziggurat, and a temple interior whose portal is cut out so
+     the scene shows through it. All full-bleed and centered so the
+     planes register the way the art was composed. */
+  .page-about  .temp-sky  { background: url('assets/about-sky.jpg')  center / cover no-repeat; }
+  .page-about  .temp-far  { background: url('assets/about-mid.webp')  center / cover no-repeat; }
+  .page-about  .temp-fore { background: url('assets/about-fore.webp') center / cover no-repeat; }
+  /* placeholder sun disc + horizon hump no longer needed here */
   .page-about  .temp-far::after,
   .page-about  .temp-fore::after { display: none; }
-  .page-about  .temp-near { color: #5e3417; }
+  /* real art has arrived — hide the placeholder title/subtitle so the
+     matte reads clean (the near plane stays for the transition). */
+  .page-about  .temp-near { visibility: hidden; }
 
   .page-projects .temp-sky { background: linear-gradient(180deg, #ccb4d2, #ece0ee); }
   .page-projects .temp-fore::after { background: #9a7ba1; }
@@ -685,8 +704,18 @@
      ========================================================== */
   (function () {
     var PAGES = ['home', 'about', 'projects', 'contact'];
+    // nav-ink tone per page: 'light' for dark scenes, else dark ink.
+    // About's temple interior is dark, so the nav switches to cream there.
+    var TONES = ['dark', 'light', 'dark', 'dark'];
+    var sideNav = document.querySelector('.side-nav');
     var navItems = Array.prototype.slice.call(document.querySelectorAll('.nav-item'));
     var current = 0, animating = false;
+
+    function setNavTone(i) {
+      if (TONES[i] === 'light') sideNav.setAttribute('data-tone', 'light');
+      else sideNav.removeAttribute('data-tone');
+    }
+    setNavTone(0);   // initial (Home)
 
     // depth planes of a page, nearest -> farthest, each with the beat
     // (seconds) at which it joins the slide. Nearest leads at t=0.
@@ -718,6 +747,7 @@
       var dir = to > current ? 1 : -1;
       animating = true;
       setActiveNav(to);
+      setNavTone(to);   // cross-fades the nav ink as the page comes in
 
       // reduced motion: hard cut, no slide
       if (reduceMotion) {
