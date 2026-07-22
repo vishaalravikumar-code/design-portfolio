@@ -300,6 +300,86 @@
     70%  { box-shadow: 0 0 0 14px rgba(243, 233, 219, 0); }
     100% { box-shadow: 0 0 0 0 rgba(243, 233, 219, 0); }
   }
+
+  /* ---------- side navigation ---------- */
+  .side-nav {
+    position: fixed;
+    left: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    pointer-events: auto;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    text-decoration: none;
+    color: #f3e9db;
+  }
+
+  .nav-item:hover {
+    opacity: 1;
+  }
+
+  .nav-roman {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  .nav-line {
+    width: 1px;
+    height: 8px;
+    background: rgba(243, 233, 219, 0.4);
+  }
+
+  .nav-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  .nav-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(243, 233, 219, 0.5);
+    transition: all 0.3s ease;
+  }
+
+  .nav-item:hover .nav-dot {
+    background: #f3e9db;
+    box-shadow: 0 0 8px rgba(243, 233, 219, 0.6);
+    scale: 1.3;
+  }
+
+  /* vertical line connecting all nav items */
+  .nav-spine {
+    position: absolute;
+    left: 33px;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background: rgba(243, 233, 219, 0.15);
+    z-index: -1;
+  }
+
+  @media (max-width: 768px) {
+    .side-nav { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -310,6 +390,35 @@
   <div class="layer" id="layer-far"><img  src="assets/mountains-gold.webp" alt=""></div>
   <div class="layer" id="layer-fore"><img src="assets/ziggurat.webp" alt=""></div>
 </div>
+
+<!-- Side navigation -->
+<nav class="side-nav">
+  <div class="nav-spine"></div>
+  <a href="#home" class="nav-item">
+    <div class="nav-dot"></div>
+    <div class="nav-roman">I</div>
+    <div class="nav-line"></div>
+    <div class="nav-label">Home</div>
+  </a>
+  <a href="#about" class="nav-item">
+    <div class="nav-dot"></div>
+    <div class="nav-roman">II</div>
+    <div class="nav-line"></div>
+    <div class="nav-label">About</div>
+  </a>
+  <a href="#projects" class="nav-item">
+    <div class="nav-dot"></div>
+    <div class="nav-roman">III</div>
+    <div class="nav-line"></div>
+    <div class="nav-label">Projects</div>
+  </a>
+  <a href="#contact" class="nav-item">
+    <div class="nav-dot"></div>
+    <div class="nav-roman">IV</div>
+    <div class="nav-line"></div>
+    <div class="nav-label">Contact</div>
+  </a>
+</nav>
 
 <!-- Tarot card — nearest "layer": sways the most and tilts on hover. -->
 <div class="card-stage">
