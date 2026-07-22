@@ -363,13 +363,14 @@
     scale: 1.3;
   }
 
-  /* vertical line connecting all nav items */
+  /* vertical line connecting all nav items — spans from the center of
+     the first dot to the center of the last, so it never pokes out */
   .nav-spine {
     position: absolute;
     left: 2.5px;
-    top: 0;
+    top: 8.5px;
     width: 1px;
-    height: 150px;
+    height: 147px;
     background: #c97a4a;
     z-index: -1;
   }
