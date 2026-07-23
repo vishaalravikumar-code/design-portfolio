@@ -36,6 +36,8 @@
 <link rel="preload" as="image" href="assets/about-sky.jpg">
 <link rel="preload" as="image" href="assets/about-mid.webp">
 <link rel="preload" as="image" href="assets/about-fore.webp">
+<link rel="preload" as="image" href="assets/projects-sky.webp">
+<link rel="preload" as="image" href="assets/projects-mid.webp">
 
 <style>
   :root {
@@ -515,9 +517,13 @@
      matte reads clean (the near plane stays for the transition). */
   .page-about  .temp-near { visibility: hidden; }
 
-  .page-projects .temp-sky { background: linear-gradient(180deg, #ccb4d2, #ece0ee); }
-  .page-projects .temp-fore::after { background: #9a7ba1; }
-  .page-projects .temp-near { color: #47324f; }
+  /* Projects: starry night sky + purple dune ridges. Foreground plate
+     still to come — its plane stays empty until then. */
+  .page-projects .temp-sky { background: url('assets/projects-sky.webp') center / cover no-repeat; }
+  .page-projects .temp-far { background: url('assets/projects-mid.webp') center / cover no-repeat; scale: 1.05; }
+  .page-projects .temp-far::after,
+  .page-projects .temp-fore::after { display: none; }
+  .page-projects .temp-near { visibility: hidden; }
 
   .page-contact .temp-sky { background: linear-gradient(180deg, #bcd0b2, #e7efe0); }
   .page-contact .temp-fore::after { background: #7f9a72; }
@@ -673,6 +679,9 @@
     { sel: '.page-about .temp-sky',  x:  -6 },   // sun/sky, gentlest
     { sel: '.page-about .temp-far',  x: -12 },   // dunes counter-move
     { sel: '.page-about .temp-fore', x:  18 },   // temple frame follows
+    // Projects (foreground plate still to come)
+    { sel: '.page-projects .temp-sky', x:  -6 },   // night sky, gentlest
+    { sel: '.page-projects .temp-far', x: -12 },   // dunes counter-move
   ];
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -724,7 +733,7 @@
     var PAGES = ['home', 'about', 'projects', 'contact'];
     // nav-ink tone per page: 'light' for dark scenes, else dark ink.
     // About's temple interior is dark, so the nav switches to cream there.
-    var TONES = ['dark', 'light', 'dark', 'dark'];
+    var TONES = ['dark', 'light', 'light', 'dark'];
     var sideNav = document.querySelector('.side-nav');
     var navItems = Array.prototype.slice.call(document.querySelectorAll('.nav-item'));
     var current = 0, animating = false;
