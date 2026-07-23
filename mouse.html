@@ -506,7 +506,10 @@
        sits in the temple's round window. The vertical 46% keeps the
        sun's whole disc clear of the viewport top, so it never shows a
        clipped edge when the frame lifts away during a page transition. */
-    background-size: 210%;
+    /* 210vw keeps the zoom on normal screens; the 178vh floor makes the
+       plate still cover on tall/portrait windows (it is a 16:9 image, so
+       width must reach ~1.78x the height to fill vertically). */
+    background-size: max(210vw, 178vh) auto;
     background-position: 100% 46%;
   }
   .page-about  .temp-far  { background: url('assets/about-mid.webp')  center / cover no-repeat; scale: 1.05; }
@@ -864,18 +867,20 @@
 
 <script>
   /* ==========================================================
-     PAGER — depth-staggered parallax slide between pages.
+     PAGER — vertical slide between pages.
      ----------------------------------------------------------
      On a nav click, the outgoing and incoming pages slide by a full
-     100% (so their edges always line up — no seams or pops). The
-     illusion of depth comes from TIMING, not distance: the nearest
-     plane (card / title) leads, and each plane behind it starts a beat
-     later, so during the slide the foreground runs ahead of the
-     background exactly the way real parallax reads. Everything lands
-     aligned at the end.
+     100% on one shared ease, so the two scenes meet at a single clean
+     edge and each page reads as one solid picture. Every page's sky is
+     opaque and full-bleed, so a page is self-contained: you never see
+     one scene's background through another's foreground cut-outs.
 
-     Groups move on GSAP xPercent, leaving x (px) free for the Home
-     pointer-sway, so the two transforms compose instead of fighting.
+     Depth in the transition is deliberately left to the pointer-sway
+     on each page (see SWAY) rather than staggering the planes here —
+     staggering made the layers visibly separate mid-slide.
+
+     Groups move on GSAP yPercent, leaving x (px) free for the pointer
+     sway, so the two transforms compose instead of fighting.
      ========================================================== */
   (function () {
     var PAGES = ['home', 'about', 'projects', 'contact'];
@@ -892,15 +897,16 @@
     }
     setNavTone(0);   // initial (Home)
 
-    // depth planes of a page, nearest -> farthest, each with the beat
-    // (seconds) at which it joins the slide. Nearest leads at t=0.
-    var DEPTHS = [
-      { key: 'near', at: 0.00, ease: 'power3.inOut' },
-      { key: 'fore', at: 0.05, ease: 'power2.inOut' },
-      { key: 'far',  at: 0.10, ease: 'power2.inOut' },
-      { key: 'sky',  at: 0.15, ease: 'power1.inOut' }
-    ];
-    var DURATION = 1.15;
+    // Depth planes, nearest -> farthest. They travel together on one
+    // shared ease so each page slides as a single coherent scene.
+    // (Staggering them pulled the layers apart mid-slide and let the two
+    // pages' skies show through the foreground cut-outs.) STAGGER is the
+    // per-plane delay in seconds — raise it for a hint of depth, at the
+    // cost of the scenes blending into each other.
+    var DEPTHS = ['near', 'fore', 'far', 'sky'];
+    var DURATION = 1.0;
+    var EASE = 'power2.inOut';
+    var STAGGER = 0;
 
     function pageEl(i) { return document.getElementById('page-' + PAGES[i]); }
     function group(el, key) { return el.querySelectorAll('[data-depth="' + key + '"]'); }
@@ -926,8 +932,8 @@
 
       // reduced motion: hard cut, no slide
       if (reduceMotion) {
-        DEPTHS.forEach(function (d) {
-          gsap.set(group(toEl, d.key), { yPercent: 0 });
+        DEPTHS.forEach(function (key) {
+          gsap.set(group(toEl, key), { yPercent: 0 });
         });
         toEl.classList.add('is-current'); toEl.removeAttribute('aria-hidden');
         fromEl.classList.remove('is-current'); fromEl.setAttribute('aria-hidden', 'true');
@@ -938,8 +944,8 @@
       // reveal incoming and park each of its planes fully off-screen
       // (below when moving down, above when moving up)
       gsap.set(toEl, { visibility: 'visible' });
-      DEPTHS.forEach(function (d) {
-        gsap.set(group(toEl, d.key), { yPercent: dir * 100 });
+      DEPTHS.forEach(function (key) {
+        gsap.set(group(toEl, key), { yPercent: dir * 100 });
       });
 
       var tl = gsap.timeline({
@@ -948,8 +954,8 @@
           fromEl.classList.remove('is-current');
           fromEl.setAttribute('aria-hidden', 'true');
           gsap.set(fromEl, { visibility: 'hidden' });
-          DEPTHS.forEach(function (d) {
-            gsap.set(group(fromEl, d.key), { yPercent: 0 });
+          DEPTHS.forEach(function (key) {
+            gsap.set(group(fromEl, key), { yPercent: 0 });
           });
           toEl.classList.add('is-current');
           toEl.removeAttribute('aria-hidden');
@@ -958,12 +964,13 @@
         }
       });
 
-      DEPTHS.forEach(function (d) {
+      DEPTHS.forEach(function (key, i) {
         // outgoing plane slides away; incoming plane slides home
-        tl.to(group(fromEl, d.key),
-              { yPercent: -dir * 100, duration: DURATION, ease: d.ease }, d.at);
-        tl.to(group(toEl, d.key),
-              { yPercent: 0, duration: DURATION, ease: d.ease }, d.at);
+        var at = i * STAGGER;
+        tl.to(group(fromEl, key),
+              { yPercent: -dir * 100, duration: DURATION, ease: EASE }, at);
+        tl.to(group(toEl, key),
+              { yPercent: 0, duration: DURATION, ease: EASE }, at);
       });
     }
 
