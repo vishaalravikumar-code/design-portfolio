@@ -39,6 +39,8 @@
 <link rel="preload" as="image" href="assets/projects-sky.webp">
 <link rel="preload" as="image" href="assets/projects-mid.webp">
 <link rel="preload" as="image" href="assets/projects-fore.webp">
+<link rel="preload" as="image" href="assets/contact-sky.webp">
+<link rel="preload" as="image" href="assets/contact-fore.webp">
 
 <style>
   :root {
@@ -521,16 +523,20 @@
   /* Projects: starry night sky, purple dune ridges, and an arched
      colonnade foreground (its checkerboard was baked in, so the alpha
      was rebuilt — see projects-fore.webp). */
-  .page-projects .temp-sky  { background: url('assets/projects-sky.webp') center / cover no-repeat; }
+  .page-projects .temp-sky  { background: url('assets/projects-sky.webp') center / cover no-repeat; scale: 1.03; }
   .page-projects .temp-far  { background: url('assets/projects-mid.webp') center / cover no-repeat; scale: 1.05; }
   .page-projects .temp-fore { background: url('assets/projects-fore.webp') center / cover no-repeat; scale: 1.06; }
   .page-projects .temp-far::after,
   .page-projects .temp-fore::after { display: none; }
   .page-projects .temp-near { visibility: hidden; }
 
-  .page-contact .temp-sky { background: linear-gradient(180deg, #bcd0b2, #e7efe0); }
-  .page-contact .temp-fore::after { background: #7f9a72; }
-  .page-contact .temp-near { color: #384a2f; }
+  /* Contact: dusk sky + a ruined shrine wall. Two planes only — this
+     scene has no midground, so that plane stays empty. */
+  .page-contact .temp-sky  { background: url('assets/contact-sky.webp') center / cover no-repeat; scale: 1.03; }
+  .page-contact .temp-fore { background: url('assets/contact-fore.webp') center / cover no-repeat; scale: 1.06; }
+  .page-contact .temp-far::after,
+  .page-contact .temp-fore::after { display: none; }
+  .page-contact .temp-near { visibility: hidden; }
 
   @media (max-width: 768px) {
     .side-nav { display: none; }
@@ -686,6 +692,9 @@
     { sel: '.page-projects .temp-sky',  x:  -6 },   // night sky, gentlest
     { sel: '.page-projects .temp-far',  x: -12 },   // dunes counter-move
     { sel: '.page-projects .temp-fore', x:  18 },   // colonnade frame follows
+    // Contact (no midground in this scene)
+    { sel: '.page-contact .temp-sky',  x:  -6 },   // dusk sky, gentlest
+    { sel: '.page-contact .temp-fore', x:  18 },   // shrine wall follows
   ];
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -737,7 +746,7 @@
     var PAGES = ['home', 'about', 'projects', 'contact'];
     // nav-ink tone per page: 'light' for dark scenes, else dark ink.
     // About's temple interior is dark, so the nav switches to cream there.
-    var TONES = ['dark', 'light', 'light', 'dark'];
+    var TONES = ['dark', 'light', 'light', 'light'];
     var sideNav = document.querySelector('.side-nav');
     var navItems = Array.prototype.slice.call(document.querySelectorAll('.nav-item'));
     var current = 0, animating = false;
