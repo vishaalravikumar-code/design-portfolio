@@ -561,6 +561,27 @@
   /* the ziggurat plates are painted, not pixel art */
   .proj-card .card-rim img { image-rendering: auto; }
 
+  /* card label, set along the bottom edge like the Home card's lockup.
+     Cream reads on both plates (worst case ~4.6:1 on the brightest day
+     plate, ~18:1 at night); the shadow covers local highlights. */
+  .card-caption {
+    position: absolute;
+    bottom: 5%;
+    left: 8%;
+    right: 8%;
+    text-align: center;
+    color: #f3e9db;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: clamp(0.5rem, 1.15vh, 0.72rem);
+    font-weight: 500;
+    letter-spacing: 0.34em;
+    /* offset the trailing tracking so it optically centres */
+    margin-right: -0.34em;
+    text-transform: uppercase;
+    pointer-events: none;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+  }
+
   /* Contact: dusk sky + a ruined shrine wall. Two planes only — this
      scene has no midground, so that plane stays empty. */
   .page-contact .temp-sky  { background: url('assets/contact-sky.webp') center / cover no-repeat; scale: 1.03; }
@@ -685,6 +706,7 @@
             <div class="card-rim">
               <img class="card-image card-image-1" src="assets/zig-01-night.webp" alt="First ziggurat by night">
               <img class="card-image card-image-2" src="assets/zig-01-day.webp"   alt="First ziggurat by day">
+              <div class="card-caption">Project 1</div>
             </div>
           </div>
         </div>
@@ -693,6 +715,7 @@
             <div class="card-rim">
               <img class="card-image card-image-1" src="assets/zig-02-night.webp" alt="Second ziggurat by night">
               <img class="card-image card-image-2" src="assets/zig-02-day.webp"   alt="Second ziggurat by day">
+              <div class="card-caption">Project 2</div>
             </div>
           </div>
         </div>
@@ -701,6 +724,7 @@
             <div class="card-rim">
               <img class="card-image card-image-1" src="assets/zig-03-night.webp" alt="Third ziggurat by night">
               <img class="card-image card-image-2" src="assets/zig-03-day.webp"   alt="Third ziggurat by day">
+              <div class="card-caption">Project 3</div>
             </div>
           </div>
         </div>
