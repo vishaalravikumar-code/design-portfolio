@@ -38,6 +38,7 @@
 <link rel="preload" as="image" href="assets/about-fore.webp">
 <link rel="preload" as="image" href="assets/projects-sky.webp">
 <link rel="preload" as="image" href="assets/projects-mid.webp">
+<link rel="preload" as="image" href="assets/projects-fore.webp">
 
 <style>
   :root {
@@ -517,10 +518,12 @@
      matte reads clean (the near plane stays for the transition). */
   .page-about  .temp-near { visibility: hidden; }
 
-  /* Projects: starry night sky + purple dune ridges. Foreground plate
-     still to come — its plane stays empty until then. */
-  .page-projects .temp-sky { background: url('assets/projects-sky.webp') center / cover no-repeat; }
-  .page-projects .temp-far { background: url('assets/projects-mid.webp') center / cover no-repeat; scale: 1.05; }
+  /* Projects: starry night sky, purple dune ridges, and an arched
+     colonnade foreground (its checkerboard was baked in, so the alpha
+     was rebuilt — see projects-fore.webp). */
+  .page-projects .temp-sky  { background: url('assets/projects-sky.webp') center / cover no-repeat; }
+  .page-projects .temp-far  { background: url('assets/projects-mid.webp') center / cover no-repeat; scale: 1.05; }
+  .page-projects .temp-fore { background: url('assets/projects-fore.webp') center / cover no-repeat; scale: 1.06; }
   .page-projects .temp-far::after,
   .page-projects .temp-fore::after { display: none; }
   .page-projects .temp-near { visibility: hidden; }
@@ -679,9 +682,10 @@
     { sel: '.page-about .temp-sky',  x:  -6 },   // sun/sky, gentlest
     { sel: '.page-about .temp-far',  x: -12 },   // dunes counter-move
     { sel: '.page-about .temp-fore', x:  18 },   // temple frame follows
-    // Projects (foreground plate still to come)
-    { sel: '.page-projects .temp-sky', x:  -6 },   // night sky, gentlest
-    { sel: '.page-projects .temp-far', x: -12 },   // dunes counter-move
+    // Projects
+    { sel: '.page-projects .temp-sky',  x:  -6 },   // night sky, gentlest
+    { sel: '.page-projects .temp-far',  x: -12 },   // dunes counter-move
+    { sel: '.page-projects .temp-fore', x:  18 },   // colonnade frame follows
   ];
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
