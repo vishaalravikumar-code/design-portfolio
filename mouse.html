@@ -528,7 +528,38 @@
   .page-projects .temp-fore { background: url('assets/projects-fore.webp') center / cover no-repeat; scale: 1.06; }
   .page-projects .temp-far::after,
   .page-projects .temp-fore::after { display: none; }
-  .page-projects .temp-near { visibility: hidden; }
+
+  /* ---------- floating ziggurat cards (Projects) ---------- */
+  /* A spread of three, riding the near plane so they move with the
+     page transition. Sits above the dunes, clear of the moon and of
+     the figure below. */
+  .proj-cards {
+    position: absolute;
+    left: 50%;
+    top: 56%;                        /* clears the moon above, the figure below */
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: clamp(0.9rem, 2.6vw, 2.4rem);
+    pointer-events: none;
+  }
+  /* overrides the fixed, screen-centred .card-stage geometry */
+  .proj-card {
+    position: relative;
+    height: min(32vh, 24vw);
+    aspect-ratio: 1024 / 1536;
+    perspective: 900px;
+    pointer-events: auto;
+    will-change: transform;
+    transition: transform 0.4s ease;
+  }
+  /* a loose hand-dealt spread rather than a rigid row */
+  .proj-card:nth-child(1) { transform: rotate(-5deg) translateY(10px); }
+  .proj-card:nth-child(2) { transform: translateY(-16px); }
+  .proj-card:nth-child(3) { transform: rotate(5deg)  translateY(10px); }
+  .proj-card:hover { z-index: 2; }
+  /* the ziggurat plates are painted, not pixel art */
+  .proj-card .card-rim img { image-rendering: auto; }
 
   /* Contact: dusk sky + a ruined shrine wall. Two planes only — this
      scene has no midground, so that plane stays empty. */
@@ -612,7 +643,7 @@
     <!-- nearest plane: the card + narration ride together -->
     <div class="home-near" data-depth="near">
       <!-- Tarot card — sways the most and tilts on hover. -->
-      <div class="card-stage">
+      <div class="card-stage tilt-stage">
         <div class="card-float">
           <div class="card-rim">
             <img class="card-image card-image-1" src="assets/Card_01.PNG" alt="Tarot card">
@@ -640,15 +671,40 @@
     </div>
   </section>
 
-  <!-- ---------- III · PROJECTS (temporary) ---------- -->
+  <!-- ---------- III · PROJECTS ---------- -->
   <section class="page page-temp page-projects" id="page-projects" aria-hidden="true">
     <div class="temp-sky"  data-depth="sky"></div>
     <div class="temp-far"  data-depth="far"></div>
     <div class="temp-fore" data-depth="fore"></div>
     <div class="temp-near" data-depth="near">
-      <div class="temp-index">III</div>
-      <h2 class="page-title">Projects</h2>
-      <p class="page-sub">A placeholder scene — final artwork coming soon.</p>
+      <!-- three floating ziggurat cards; each tilts and lenticulates
+           between its day and night plate -->
+      <div class="proj-cards">
+        <div class="proj-card tilt-stage">
+          <div class="card-float">
+            <div class="card-rim">
+              <img class="card-image card-image-1" src="assets/zig-01-day.webp"   alt="First ziggurat by day">
+              <img class="card-image card-image-2" src="assets/zig-01-night.webp" alt="First ziggurat by night">
+            </div>
+          </div>
+        </div>
+        <div class="proj-card tilt-stage">
+          <div class="card-float">
+            <div class="card-rim">
+              <img class="card-image card-image-1" src="assets/zig-02-day.webp"   alt="Second ziggurat by day">
+              <img class="card-image card-image-2" src="assets/zig-02-night.webp" alt="Second ziggurat by night">
+            </div>
+          </div>
+        </div>
+        <div class="proj-card tilt-stage">
+          <div class="card-float">
+            <div class="card-rim">
+              <img class="card-image card-image-1" src="assets/zig-03-day.webp"   alt="Third ziggurat by day">
+              <img class="card-image card-image-2" src="assets/zig-03-night.webp" alt="Third ziggurat by night">
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -972,42 +1028,48 @@
   (function () {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    var stage = document.querySelector('.card-stage');
-    var card = document.querySelector('.card-float');
-
     var ROTATE_AMPLITUDE = 14;
     var SCALE_ON_HOVER = 1.06;
+    var K = 100, C = 30, M = 2;
 
     // spring channels (motion/react physical spring: a = (-k·x - c·v)/m)
     function S(x) { return { x: x, v: 0, t: x }; }
-    var rx = S(0), ry = S(0), sc = S(1);
-    var K = 100, C = 30, M = 2;
     function integrate(s, dt) {
       var a = (-K * (s.x - s.t) - C * s.v) / M;
       s.v += a * dt; s.x += s.v * dt;
     }
 
-    stage.addEventListener('mousemove', function (e) {
-      var r = stage.getBoundingClientRect();
-      var ox = e.clientX - r.left - r.width / 2;
-      var oy = e.clientY - r.top - r.height / 2;
-      rx.t = (oy / (r.height / 2)) * -ROTATE_AMPLITUDE;
-      ry.t = (ox / (r.width / 2)) * ROTATE_AMPLITUDE;
+    // every .tilt-stage gets its own springs — Home's tarot card and
+    // each of the Projects ziggurat cards
+    var rigs = [];
+    Array.prototype.forEach.call(document.querySelectorAll('.tilt-stage'), function (stage) {
+      var card = stage.querySelector('.card-float');
+      if (!card) return;
+      var rig = { stage: stage, card: card, rx: S(0), ry: S(0), sc: S(1) };
+      stage.addEventListener('mousemove', function (e) {
+        var r = stage.getBoundingClientRect();
+        var ox = e.clientX - r.left - r.width / 2;
+        var oy = e.clientY - r.top - r.height / 2;
+        rig.rx.t = (oy / (r.height / 2)) * -ROTATE_AMPLITUDE;
+        rig.ry.t = (ox / (r.width / 2)) * ROTATE_AMPLITUDE;
+      });
+      stage.addEventListener('mouseenter', function () { rig.sc.t = SCALE_ON_HOVER; });
+      stage.addEventListener('mouseleave', function () {
+        rig.sc.t = 1; rig.rx.t = 0; rig.ry.t = 0;
+      });
+      rigs.push(rig);
     });
-    stage.addEventListener('mouseenter', function () { sc.t = SCALE_ON_HOVER; });
-    stage.addEventListener('mouseleave', function () {
-      sc.t = 1; rx.t = 0; ry.t = 0;
-    });
+    if (!rigs.length) return;
 
     var last = performance.now();
     function frame(now) {
       var dt = Math.min((now - last) / 1000, 0.033); last = now;
-      integrate(rx, dt); integrate(ry, dt); integrate(sc, dt);
-
-      card.style.transform =
-        'rotateX(' + rx.x.toFixed(3) + 'deg) rotateY(' + ry.x.toFixed(3) +
-        'deg) scale(' + sc.x.toFixed(4) + ')';
-
+      rigs.forEach(function (g) {
+        integrate(g.rx, dt); integrate(g.ry, dt); integrate(g.sc, dt);
+        g.card.style.transform =
+          'rotateX(' + g.rx.x.toFixed(3) + 'deg) rotateY(' + g.ry.x.toFixed(3) +
+          'deg) scale(' + g.sc.x.toFixed(4) + ')';
+      });
       requestAnimationFrame(frame);
     }
 
@@ -1018,42 +1080,44 @@
 </script>
 
 <script>
-  /* Lenticular card effect - shows Card_02 fully at edges, blends in middle */
+  /* Lenticular effect — the alternate plate shows at the card's edges and
+     blends back to the primary across the middle. Runs on every .card-rim:
+     Home's tarot card and each Projects ziggurat (day <-> night). */
   (function () {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    var rim = document.querySelector('.card-rim');
-    var img1 = document.querySelector('.card-image-1');
-    var img2 = document.querySelector('.card-image-2');
+    Array.prototype.forEach.call(document.querySelectorAll('.card-rim'), function (rim) {
+      var img1 = rim.querySelector('.card-image-1');
+      var img2 = rim.querySelector('.card-image-2');
+      if (!img1 || !img2) return;
 
-    if (!rim || !img1 || !img2) return;
+      rim.addEventListener('mousemove', function (e) {
+        var r = rim.getBoundingClientRect();
+        if (r.width === 0) return;
 
-    rim.addEventListener('mousemove', function (e) {
-      var r = rim.getBoundingClientRect();
-      if (r.width === 0) return;
+        var nx = (e.clientX - r.left) / r.width;
+        var opacity2 = 0;
 
-      var nx = (e.clientX - r.left) / r.width;
-      var opacity2 = 0;
+        if (nx < 0.25) {
+          opacity2 = 1;
+        } else if (nx < 0.33) {
+          opacity2 = 1 - ((nx - 0.25) / 0.08);
+        } else if (nx < 0.67) {
+          opacity2 = 0;
+        } else if (nx < 0.75) {
+          opacity2 = (nx - 0.67) / 0.08;
+        } else {
+          opacity2 = 1;
+        }
 
-      if (nx < 0.25) {
-        opacity2 = 1;
-      } else if (nx < 0.33) {
-        opacity2 = 1 - ((nx - 0.25) / 0.08);
-      } else if (nx < 0.67) {
-        opacity2 = 0;
-      } else if (nx < 0.75) {
-        opacity2 = (nx - 0.67) / 0.08;
-      } else {
-        opacity2 = 1;
-      }
+        img1.style.opacity = (1 - opacity2).toFixed(2);
+        img2.style.opacity = opacity2.toFixed(2);
+      });
 
-      img1.style.opacity = (1 - opacity2).toFixed(2);
-      img2.style.opacity = opacity2.toFixed(2);
-    });
-
-    rim.addEventListener('mouseleave', function () {
-      img1.style.opacity = '1';
-      img2.style.opacity = '0';
+      rim.addEventListener('mouseleave', function () {
+        img1.style.opacity = '1';
+        img2.style.opacity = '0';
+      });
     });
   })();
 </script>
